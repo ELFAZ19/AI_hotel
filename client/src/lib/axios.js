@@ -1,8 +1,13 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
+let apiBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+if (!apiBaseURL.endsWith('/api')) {
+  apiBaseURL = `${apiBaseURL.replace(/\/$/, '')}/api`;
+}
+
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: apiBaseURL,
 });
 
 // Request interceptor - attach token
