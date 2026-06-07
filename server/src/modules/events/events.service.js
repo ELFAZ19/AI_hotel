@@ -20,7 +20,18 @@ const createEventSpace = async (data) => {
   return result.rows[0];
 };
 
+const VALID_EVENT_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
+
 const getAllEventBookings = async ({ status, guest_id, event_date }) => {
+  // Validate status against the event_status enum before hitting the DB
+  if (status !== undefined && status !== null && status !== '') {
+    if (!VALID_EVENT_STATUSES.includes(status)) {
+      const err = new Error(`Invalid status value "${status}". Must be one of: ${VALID_EVENT_STATUSES.join(', ')}`);
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
   let query = 'SELECT * FROM event_bookings WHERE 1=1';
   const params = [];
   
