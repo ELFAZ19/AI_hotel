@@ -50,8 +50,7 @@ export default function AppRouter() {
 
         {/* Public Layout Routes */}
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/home" element={<HomePage />} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/rooms" element={<RoomsPage />} />
           <Route path="/rooms/:id" element={<RoomDetailPage />} />
           <Route path="/restaurant" element={<RestaurantPage />} />
@@ -88,7 +87,7 @@ export default function AppRouter() {
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/home" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

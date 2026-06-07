@@ -30,9 +30,18 @@ export default function HomePage() {
     <div className="bg-white">
       {/* Hero Section */}
       <section className="relative h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden bg-navy-950">
-        {/* TODO: Add video background here in the future */}
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1542314831-c6a4d4598b0e?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-900/50 to-transparent"></div>
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="https://res.cloudinary.com/ddizm5aqs/video/upload/v1780870997/V2_Watermarked-22473C0a-2322-45B8-8C55-C9c4527ab90a_jlvxtf.mp4" type="video/mp4" />
+          {/* Fallback image if video fails */}
+          <img src="https://interluxuryhotel.com/" alt="Hotel Interior" />
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/50 to-navy-950/40"></div>
         
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto animate-fade-in-up">
           <p className="text-gold-400 font-medium tracking-[0.2em] uppercase text-sm mb-4">Dire Dawa's Premier Destination</p>

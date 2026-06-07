@@ -31,7 +31,7 @@ export default function Sidebar({ collapsed, onToggle }) {
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-navy-800">
-        <Link to="/home" className="font-serif text-lg font-bold truncate">
+        <Link to="/" className="font-serif text-lg font-bold truncate">
           {collapsed ? (
             <span className="text-gold-500">A</span>
           ) : (

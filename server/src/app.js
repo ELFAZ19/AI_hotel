@@ -24,6 +24,7 @@ app.use(
     origin: [
       'http://localhost:5173',
       'https://ai-hotel.onrender.com',
+      'https://ai-hotel-six.vercel.app',
       process.env.CLIENT_URL
     ].filter(Boolean),
     credentials: true,
