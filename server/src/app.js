@@ -21,12 +21,24 @@ app.use(helmet());
 // CORS
 app.use(
   cors({
-    origin: [
-      'http://localhost:5173',
-      'https://ai-hotel.onrender.com',
-      'https://ai-hotel-six.vercel.app',
-      process.env.CLIENT_URL
-    ].filter(Boolean),
+    origin: function (origin, callback) {
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'https://ai-hotel.onrender.com',
+        'https://ai-hotel-six.vercel.app',
+        process.env.CLIENT_URL
+      ].filter(Boolean);
+      
+      if (!origin) return callback(null, true);
+      
+      const normalizedOrigin = origin.replace(/\/$/, ''); // Remove trailing slash if present
+      
+      if (allowedOrigins.includes(normalizedOrigin) || normalizedOrigin.endsWith('.vercel.app')) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS: ' + origin));
+      }
+    },
     credentials: true,
   })
 );
