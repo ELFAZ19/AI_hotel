@@ -1,72 +1,57 @@
 const express = require('express');
 const router = express.Router();
 const paymentsController = require('./payments.controller');
+const { authenticate, authorize } = require('../../middleware/auth');
 
 /**
  * @swagger
  * tags:
  *   name: Payments
- *   description: Payment management and webhook integration
+ *   description: Chapa payment integration
  */
+
+// ======================== WEBHOOK (no auth) ========================
 
 /**
  * @swagger
- * /api/payments:
- *   get:
- *     summary: Get all payments
- *     tags: [Payments]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of all payments
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: true }
- *                 data:
- *                   type: array
- *                   items: { $ref: '#/components/schemas/Payment' }
- */
-router.get('/', paymentsController.getAllPayments);
-
-/**
- * @swagger
- * /api/payments/{id}:
- *   get:
- *     summary: Get payment by ID
- *     tags: [Payments]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Payment details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: true }
- *                 data: { $ref: '#/components/schemas/Payment' }
- *       404:
- *         description: Payment not found
- */
-router.get('/:id', paymentsController.getPaymentById);
-
-/**
- * @swagger
- * /api/payments/initialize:
+ * /api/payments/webhook:
  *   post:
- *     summary: Initialize a new Chapa payment
+ *     summary: Chapa webhook callback (server-to-server)
+ *     tags: [Payments]
+ *     description: >
+ *       Called by Chapa's servers when a payment event occurs.
+ *       Validates the HMAC SHA256 signature in the `x-chapa-signature` header
+ *       against `req.rawBody`. Do NOT call this manually.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tx_ref: { type: string }
+ *               status: { type: string }
+ *     responses:
+ *       200:
+ *         description: Webhook processed
+ *       400:
+ *         description: Invalid signature
+ */
+router.post(
+  '/webhook',
+  paymentsController.handleWebhook
+);
+
+// All other routes require authentication
+router.use(authenticate);
+
+// ======================== GUEST ROUTES ========================
+
+/**
+ * @swagger
+ * /api/payments/initiate:
+ *   post:
+ *     summary: Initiate a Chapa payment for a reservation (guest only)
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -81,11 +66,51 @@ router.get('/:id', paymentsController.getPaymentById);
  *               - amount
  *             properties:
  *               reservation_id: { type: string, format: uuid }
- *               amount: { type: number }
- *               currency: { type: string, default: 'ETB' }
+ *               amount: { type: number, example: 3000 }
  *     responses:
- *       201:
- *         description: Payment initialized successfully
+ *       200:
+ *         description: Returns a Chapa checkout URL
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     checkoutUrl: { type: string, format: uri }
+ *       400:
+ *         description: Validation or payment initiation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  '/initiate',
+  authorize('guest'),
+  paymentsController.initiatePayment
+);
+
+/**
+ * @swagger
+ * /api/payments/verify/{txRef}:
+ *   get:
+ *     summary: Verify a payment by transaction reference (guest only)
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: txRef
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Chapa transaction reference
+ *     responses:
+ *       200:
+ *         description: Payment verification result
  *         content:
  *           application/json:
  *             schema:
@@ -93,29 +118,57 @@ router.get('/:id', paymentsController.getPaymentById);
  *               properties:
  *                 success: { type: boolean, example: true }
  *                 data: { $ref: '#/components/schemas/Payment' }
+ *       404:
+ *         description: Payment not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/initialize', paymentsController.initializePayment);
+router.get(
+  '/verify/:txRef',
+  authorize('guest'),
+  paymentsController.verifyPayment
+);
+
+// ======================== SHARED ROUTES ========================
 
 /**
  * @swagger
- * /api/payments/webhook:
- *   post:
- *     summary: Chapa webhook endpoint
+ * /api/payments/reservation/{id}:
+ *   get:
+ *     summary: Get payment details by reservation ID
  *     tags: [Payments]
- *     description: Receives payment status updates from Chapa.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               trx_ref: { type: string }
- *               status: { type: string }
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Reservation UUID
  *     responses:
  *       200:
- *         description: Webhook received successfully
+ *         description: Payment details for the reservation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data: { $ref: '#/components/schemas/Payment' }
+ *       404:
+ *         description: No payment found for this reservation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/webhook', paymentsController.handleWebhook); // For Chapa webhook
+router.get(
+  '/reservation/:id',
+  paymentsController.getPaymentByReservationId
+);
 
 module.exports = router;

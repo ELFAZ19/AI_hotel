@@ -1,46 +1,63 @@
 const restaurantService = require('./restaurant.service');
 
-const getAllReservations = async (req, res, next) => {
-  try {
-    const reservations = await restaurantService.getAllReservations(req.query);
-    res.json({ success: true, data: reservations });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getReservationById = async (req, res, next) => {
-  try {
-    const reservation = await restaurantService.getReservationById(req.params.id);
-    if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
-    res.json({ success: true, data: reservation });
-  } catch (error) {
-    next(error);
-  }
-};
-
 const createReservation = async (req, res, next) => {
   try {
-    const newReservation = await restaurantService.createReservation(req.body);
+    const guestId = req.user.id;
+    const { date, time, partySize, specialRequests } = req.body;
+    
+    const newReservation = await restaurantService.createReservation({
+      guestId,
+      date,
+      time,
+      partySize,
+      specialRequests
+    });
+    
     res.status(201).json({ success: true, data: newReservation });
   } catch (error) {
     next(error);
   }
 };
 
-const updateReservation = async (req, res, next) => {
+const getMyReservations = async (req, res, next) => {
   try {
-    const updatedReservation = await restaurantService.updateReservation(req.params.id, req.body);
-    if (!updatedReservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
-    res.json({ success: true, data: updatedReservation });
+    const guestId = req.user.id;
+    const reservations = await restaurantService.getMyReservations(guestId);
+    res.json({ success: true, data: reservations });
   } catch (error) {
     next(error);
   }
 };
 
+const getAllReservations = async (req, res, next) => {
+  try {
+    const { date, status, page, limit } = req.query;
+    const result = await restaurantService.getAllReservations({ date, status, page, limit });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateStatus = async (req, res, next) => {
+  try {
+    const staffId = req.user.id;
+    const ipAddress = req.ip;
+    const { status } = req.body;
+    
+    const updatedReservation = await restaurantService.updateStatus(req.params.id, status, staffId, ipAddress);
+    res.json({ success: true, data: updatedReservation });
+  } catch (error) {
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    next(error);
+  }
+};
+
 module.exports = {
-  getAllReservations,
-  getReservationById,
   createReservation,
-  updateReservation
+  getMyReservations,
+  getAllReservations,
+  updateStatus
 };

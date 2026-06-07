@@ -1,43 +1,81 @@
 const express = require('express');
 const router = express.Router();
 const restaurantController = require('./restaurant.controller');
+const { authenticate, authorize } = require('../../middleware/auth');
+const {
+  validateCreateRestaurantReservation,
+  validateUpdateRestaurantStatus
+} = require('./restaurant.validation');
 
 /**
  * @swagger
  * tags:
- *   name: Services
- *   description: Hotel services and restaurant reservations
+ *   name: Restaurant
+ *   description: Restaurant reservation management
  */
+
+router.use(authenticate);
+
+// ======================== GUEST ROUTES ========================
 
 /**
  * @swagger
- * /api/restaurant:
- *   get:
- *     summary: Get all restaurant reservations
- *     tags: [Services]
+ * /api/restaurant/reservations:
+ *   post:
+ *     summary: Create a restaurant reservation (guest only)
+ *     tags: [Restaurant]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *         description: Filter by reservation status
- *       - in: query
- *         name: guest_id
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Filter by guest ID
- *       - in: query
- *         name: date
- *         schema:
- *           type: string
- *           format: date
- *         description: Filter by reservation date
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - date
+ *               - time
+ *               - partySize
+ *             properties:
+ *               date: { type: string, format: date, example: "2025-08-15" }
+ *               time: { type: string, example: "19:30" }
+ *               partySize: { type: integer, minimum: 1, example: 4 }
+ *               specialRequests: { type: string, example: "Window seat please" }
+ *     responses:
+ *       201:
+ *         description: Restaurant reservation created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data: { $ref: '#/components/schemas/RestaurantReservation' }
+ *       400:
+ *         description: Validation error (e.g. past date)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  '/reservations',
+  authorize('guest'),
+  validateCreateRestaurantReservation,
+  restaurantController.createReservation
+);
+
+/**
+ * @swagger
+ * /api/restaurant/reservations/my:
+ *   get:
+ *     summary: Get my restaurant reservations (guest only)
+ *     tags: [Restaurant]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of restaurant reservations
+ *         description: Guest's own restaurant reservations
  *         content:
  *           application/json:
  *             schema:
@@ -48,14 +86,73 @@ const restaurantController = require('./restaurant.controller');
  *                   type: array
  *                   items: { $ref: '#/components/schemas/RestaurantReservation' }
  */
-router.get('/', restaurantController.getAllReservations);
+router.get(
+  '/reservations/my',
+  authorize('guest'),
+  restaurantController.getMyReservations
+);
+
+// ======================== STAFF ROUTES ========================
 
 /**
  * @swagger
- * /api/restaurant/{id}:
+ * /api/restaurant/reservations:
  *   get:
- *     summary: Get a restaurant reservation by ID
- *     tags: [Services]
+ *     summary: Get all restaurant reservations (staff only)
+ *     tags: [Restaurant]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter by reservation date
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, confirmed, seated, completed, cancelled, no_show]
+ *         description: Filter by status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: Paginated list with guest contact details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: array
+ *                   items: { $ref: '#/components/schemas/RestaurantReservation' }
+ *                 total: { type: integer }
+ *                 page: { type: integer }
+ *                 totalPages: { type: integer }
+ */
+router.get(
+  '/reservations',
+  authorize('admin', 'manager', 'receptionist'),
+  restaurantController.getAllReservations
+);
+
+/**
+ * @swagger
+ * /api/restaurant/reservations/{id}/status:
+ *   patch:
+ *     summary: Update restaurant reservation status (staff only)
+ *     tags: [Restaurant]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -65,29 +162,7 @@ router.get('/', restaurantController.getAllReservations);
  *         schema:
  *           type: string
  *           format: uuid
- *     responses:
- *       200:
- *         description: Reservation details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: true }
- *                 data: { $ref: '#/components/schemas/RestaurantReservation' }
- *       404:
- *         description: Reservation not found
- */
-router.get('/:id', restaurantController.getReservationById);
-
-/**
- * @swagger
- * /api/restaurant:
- *   post:
- *     summary: Create a new restaurant reservation
- *     tags: [Services]
- *     security:
- *       - bearerAuth: []
+ *         description: Restaurant reservation UUID
  *     requestBody:
  *       required: true
  *       content:
@@ -95,61 +170,14 @@ router.get('/:id', restaurantController.getReservationById);
  *           schema:
  *             type: object
  *             required:
- *               - guest_id
- *               - reservation_date
- *               - reservation_time
- *               - party_size
+ *               - status
  *             properties:
- *               guest_id: { type: string, format: uuid }
- *               reservation_date: { type: string, format: date }
- *               reservation_time: { type: string, format: time }
- *               party_size: { type: integer }
- *               special_requests: { type: string }
- *     responses:
- *       201:
- *         description: Reservation created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: true }
- *                 data: { $ref: '#/components/schemas/RestaurantReservation' }
- */
-router.post('/', restaurantController.createReservation);
-
-/**
- * @swagger
- * /api/restaurant/{id}:
- *   put:
- *     summary: Update a restaurant reservation
- *     tags: [Services]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               status: 
+ *               status:
  *                 type: string
- *                 enum: [pending, confirmed, seated, completed, cancelled]
- *               special_requests:
- *                 type: string
- *               party_size:
- *                 type: integer
+ *                 enum: [pending, confirmed, seated, completed, cancelled, no_show]
  *     responses:
  *       200:
- *         description: Reservation updated
+ *         description: Status updated (change logged in audit_logs)
  *         content:
  *           application/json:
  *             schema:
@@ -159,7 +187,16 @@ router.post('/', restaurantController.createReservation);
  *                 data: { $ref: '#/components/schemas/RestaurantReservation' }
  *       404:
  *         description: Reservation not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', restaurantController.updateReservation);
+router.patch(
+  '/reservations/:id/status',
+  authorize('admin', 'manager', 'receptionist'),
+  validateUpdateRestaurantStatus,
+  restaurantController.updateStatus
+);
 
 module.exports = router;

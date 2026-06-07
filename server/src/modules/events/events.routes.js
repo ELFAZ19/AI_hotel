@@ -1,23 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const eventsController = require('./events.controller');
+const { authenticate, authorize } = require('../../middleware/auth');
+const {
+  validateCreateEventBooking,
+  validateUpdateEventStatus
+} = require('./events.validation');
 
 /**
  * @swagger
  * tags:
- *   name: Services
- *   description: Hotel services and event bookings
+ *   name: Events
+ *   description: Event spaces and bookings management
  */
+
+// ======================== PUBLIC ROUTES ========================
 
 /**
  * @swagger
  * /api/events/spaces:
  *   get:
  *     summary: Get all active event spaces
- *     tags: [Services]
+ *     tags: [Events]
  *     responses:
  *       200:
- *         description: List of event spaces
+ *         description: List of active event spaces
  *         content:
  *           application/json:
  *             schema:
@@ -28,41 +35,19 @@ const eventsController = require('./events.controller');
  *                   type: array
  *                   items: { $ref: '#/components/schemas/EventSpace' }
  */
-router.get('/spaces', eventsController.getAllEventSpaces);
+router.get('/spaces', eventsController.getEventSpaces);
+
+// Authentication required for the rest
+router.use(authenticate);
+
+// ======================== GUEST ROUTES ========================
 
 /**
  * @swagger
- * /api/events/spaces/{id}:
- *   get:
- *     summary: Get event space by ID
- *     tags: [Services]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Event space details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: true }
- *                 data: { $ref: '#/components/schemas/EventSpace' }
- *       404:
- *         description: Event space not found
- */
-router.get('/spaces/:id', eventsController.getEventSpaceById);
-
-/**
- * @swagger
- * /api/events/spaces:
+ * /api/events/bookings:
  *   post:
- *     summary: Create a new event space
- *     tags: [Services]
+ *     summary: Create an event booking (guest only)
+ *     tags: [Events]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -72,57 +57,56 @@ router.get('/spaces/:id', eventsController.getEventSpaceById);
  *           schema:
  *             type: object
  *             required:
- *               - name
- *               - capacity
- *               - price_per_hour
+ *               - spaceId
+ *               - eventName
+ *               - eventDate
+ *               - startTime
+ *               - endTime
+ *               - guestCount
  *             properties:
- *               name: { type: string }
- *               capacity: { type: integer }
- *               price_per_hour: { type: number }
- *               amenities: { type: array, items: { type: string } }
- *               is_active: { type: boolean }
+ *               spaceId: { type: integer, example: 1 }
+ *               eventName: { type: string, example: "Wedding Reception" }
+ *               eventType: { type: string, example: "Wedding" }
+ *               eventDate: { type: string, format: date, example: "2025-08-20" }
+ *               startTime: { type: string, example: "14:00" }
+ *               endTime: { type: string, example: "22:00" }
+ *               guestCount: { type: integer, minimum: 1, example: 150 }
+ *               notes: { type: string, example: "Need catering setup" }
  *     responses:
  *       201:
- *         description: Event space created
+ *         description: Booking created successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
  *                 success: { type: boolean, example: true }
- *                 data: { $ref: '#/components/schemas/EventSpace' }
+ *                 data: { $ref: '#/components/schemas/EventBooking' }
+ *       400:
+ *         description: Validation error or time conflict
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/spaces', eventsController.createEventSpace);
+router.post(
+  '/bookings',
+  authorize('guest'),
+  validateCreateEventBooking,
+  eventsController.createBooking
+);
 
 /**
  * @swagger
- * /api/events/bookings:
+ * /api/events/bookings/my:
  *   get:
- *     summary: Get all event bookings
- *     tags: [Services]
+ *     summary: Get my event bookings (guest only)
+ *     tags: [Events]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *         description: Filter by status
- *       - in: query
- *         name: guest_id
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Filter by guest ID
- *       - in: query
- *         name: event_date
- *         schema:
- *           type: string
- *           format: date
- *         description: Filter by date
  *     responses:
  *       200:
- *         description: List of event bookings
+ *         description: Guest's own event bookings
  *         content:
  *           application/json:
  *             schema:
@@ -133,14 +117,78 @@ router.post('/spaces', eventsController.createEventSpace);
  *                   type: array
  *                   items: { $ref: '#/components/schemas/EventBooking' }
  */
-router.get('/bookings', eventsController.getAllEventBookings);
+router.get(
+  '/bookings/my',
+  authorize('guest'),
+  eventsController.getMyBookings
+);
+
+// ======================== STAFF ROUTES ========================
 
 /**
  * @swagger
- * /api/events/bookings/{id}:
+ * /api/events/bookings:
  *   get:
- *     summary: Get event booking by ID
- *     tags: [Services]
+ *     summary: Get all event bookings (staff only)
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter by event date
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, confirmed, completed, cancelled]
+ *         description: Filter by status
+ *       - in: query
+ *         name: space_id
+ *         schema:
+ *           type: integer
+ *         description: Filter by space ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: Paginated list of all event bookings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: array
+ *                   items: { $ref: '#/components/schemas/EventBooking' }
+ *                 total: { type: integer }
+ *                 page: { type: integer }
+ *                 totalPages: { type: integer }
+ */
+router.get(
+  '/bookings',
+  authorize('admin', 'manager', 'receptionist'),
+  eventsController.getAllBookings
+);
+
+/**
+ * @swagger
+ * /api/events/bookings/{id}/status:
+ *   patch:
+ *     summary: Update event booking status (staff only)
+ *     tags: [Events]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -150,9 +198,22 @@ router.get('/bookings', eventsController.getAllEventBookings);
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: Event booking UUID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [pending, confirmed, completed, cancelled]
  *     responses:
  *       200:
- *         description: Booking details
+ *         description: Status updated (change logged in audit_logs)
  *         content:
  *           application/json:
  *             schema:
@@ -162,92 +223,16 @@ router.get('/bookings', eventsController.getAllEventBookings);
  *                 data: { $ref: '#/components/schemas/EventBooking' }
  *       404:
  *         description: Booking not found
- */
-router.get('/bookings/:id', eventsController.getEventBookingById);
-
-/**
- * @swagger
- * /api/events/bookings:
- *   post:
- *     summary: Create an event booking
- *     tags: [Services]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - guest_id
- *               - space_id
- *               - event_name
- *               - event_date
- *               - start_time
- *               - end_time
- *               - guest_count
- *             properties:
- *               guest_id: { type: string, format: uuid }
- *               space_id: { type: integer }
- *               event_name: { type: string }
- *               event_type: { type: string }
- *               event_date: { type: string, format: date }
- *               start_time: { type: string, format: time }
- *               end_time: { type: string, format: time }
- *               guest_count: { type: integer }
- *               total_price: { type: number }
- *               notes: { type: string }
- *     responses:
- *       201:
- *         description: Event booking created
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: true }
- *                 data: { $ref: '#/components/schemas/EventBooking' }
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/bookings', eventsController.createEventBooking);
-
-/**
- * @swagger
- * /api/events/bookings/{id}:
- *   put:
- *     summary: Update event booking status
- *     tags: [Services]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               status: { type: string, enum: [pending, confirmed, completed, cancelled] }
- *               notes: { type: string }
- *     responses:
- *       200:
- *         description: Event booking updated
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: true }
- *                 data: { $ref: '#/components/schemas/EventBooking' }
- *       404:
- *         description: Event booking not found
- */
-router.put('/bookings/:id', eventsController.updateEventBooking);
+router.patch(
+  '/bookings/:id/status',
+  authorize('admin', 'manager', 'receptionist'),
+  validateUpdateEventStatus,
+  eventsController.updateStatus
+);
 
 module.exports = router;

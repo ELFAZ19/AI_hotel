@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const roomsController = require('./rooms.controller');
-// const { authenticate, authorize } = require('../../middleware/authMiddleware'); 
-// Assuming there might be auth middleware later
+const { authenticate, authorize } = require('../../middleware/auth');
 
 /**
  * @swagger
@@ -10,6 +9,8 @@ const roomsController = require('./rooms.controller');
  *   name: Rooms
  *   description: Room and Room Type management
  */
+
+// ======================== ROOM TYPES ========================
 
 /**
  * @swagger
@@ -19,7 +20,7 @@ const roomsController = require('./rooms.controller');
  *     tags: [Rooms]
  *     responses:
  *       200:
- *         description: List of room types
+ *         description: List of room types sorted by base_price ASC
  *         content:
  *           application/json:
  *             schema:
@@ -44,6 +45,7 @@ router.get('/types', roomsController.getAllRoomTypes);
  *         required: true
  *         schema:
  *           type: integer
+ *         description: Room type ID
  *     responses:
  *       200:
  *         description: Room type details
@@ -56,6 +58,10 @@ router.get('/types', roomsController.getAllRoomTypes);
  *                 data: { $ref: '#/components/schemas/RoomType' }
  *       404:
  *         description: Room type not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/types/:id', roomsController.getRoomTypeById);
 
@@ -63,7 +69,7 @@ router.get('/types/:id', roomsController.getRoomTypeById);
  * @swagger
  * /api/rooms/types:
  *   post:
- *     summary: Create a new room type
+ *     summary: Create a new room type (admin/manager only)
  *     tags: [Rooms]
  *     security:
  *       - bearerAuth: []
@@ -77,11 +83,11 @@ router.get('/types/:id', roomsController.getRoomTypeById);
  *               - name
  *               - base_price
  *             properties:
- *               name: { type: string }
- *               description: { type: string }
- *               base_price: { type: number }
- *               max_guests: { type: integer, default: 2 }
- *               amenities: { type: array, items: { type: string } }
+ *               name: { type: string, example: "Deluxe Suite" }
+ *               description: { type: string, example: "Spacious suite with sea view" }
+ *               base_price: { type: number, example: 3500 }
+ *               max_guests: { type: integer, default: 2, example: 4 }
+ *               amenities: { type: array, items: { type: string }, example: ["WiFi", "AC", "Mini Bar"] }
  *     responses:
  *       201:
  *         description: Created room type
@@ -93,28 +99,36 @@ router.get('/types/:id', roomsController.getRoomTypeById);
  *                 success: { type: boolean, example: true }
  *                 data: { $ref: '#/components/schemas/RoomType' }
  */
-router.post('/types', roomsController.createRoomType);
+router.post('/types', authenticate, authorize('admin', 'manager'), roomsController.createRoomType);
+
+// ======================== ROOMS ========================
 
 /**
  * @swagger
  * /api/rooms:
  *   get:
- *     summary: Get all rooms
+ *     summary: Get all active rooms
  *     tags: [Rooms]
  *     parameters:
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
+ *           enum: [available, occupied, maintenance, inactive]
  *         description: Filter by room status
  *       - in: query
  *         name: type
  *         schema:
  *           type: integer
  *         description: Filter by room type ID
+ *       - in: query
+ *         name: floor
+ *         schema:
+ *           type: integer
+ *         description: Filter by floor number
  *     responses:
  *       200:
- *         description: List of rooms
+ *         description: List of rooms with type info and primary image
  *         content:
  *           application/json:
  *             schema:
@@ -129,9 +143,61 @@ router.get('/', roomsController.getAllRooms);
 
 /**
  * @swagger
+ * /api/rooms/available:
+ *   get:
+ *     summary: Get rooms available for a date range
+ *     tags: [Rooms]
+ *     parameters:
+ *       - in: query
+ *         name: check_in
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Check-in date (YYYY-MM-DD)
+ *       - in: query
+ *         name: check_out
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Check-out date (YYYY-MM-DD)
+ *       - in: query
+ *         name: guests
+ *         schema:
+ *           type: integer
+ *         description: Minimum guest capacity required
+ *       - in: query
+ *         name: room_type_id
+ *         schema:
+ *           type: integer
+ *         description: Filter by room type
+ *     responses:
+ *       200:
+ *         description: List of available rooms (no conflicting reservations)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: array
+ *                   items: { $ref: '#/components/schemas/Room' }
+ *       400:
+ *         description: Missing check_in or check_out
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get('/available', roomsController.getAvailableRooms);
+
+/**
+ * @swagger
  * /api/rooms/{id}:
  *   get:
- *     summary: Get room by ID
+ *     summary: Get room by ID (includes all images)
  *     tags: [Rooms]
  *     parameters:
  *       - in: path
@@ -140,9 +206,10 @@ router.get('/', roomsController.getAllRooms);
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: Room UUID
  *     responses:
  *       200:
- *         description: Room details
+ *         description: Full room details with images array
  *         content:
  *           application/json:
  *             schema:
@@ -152,6 +219,10 @@ router.get('/', roomsController.getAllRooms);
  *                 data: { $ref: '#/components/schemas/Room' }
  *       404:
  *         description: Room not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/:id', roomsController.getRoomById);
 
@@ -159,7 +230,7 @@ router.get('/:id', roomsController.getRoomById);
  * @swagger
  * /api/rooms:
  *   post:
- *     summary: Create a new room
+ *     summary: Create a new room (admin/manager only)
  *     tags: [Rooms]
  *     security:
  *       - bearerAuth: []
@@ -174,13 +245,13 @@ router.get('/:id', roomsController.getRoomById);
  *               - room_type_id
  *               - floor
  *             properties:
- *               room_number: { type: string }
- *               room_type_id: { type: integer }
- *               floor: { type: integer }
- *               status: { type: string, enum: [available, occupied, maintenance, inactive] }
- *               price_override: { type: number }
+ *               room_number: { type: string, example: "401" }
+ *               room_type_id: { type: integer, example: 1 }
+ *               floor: { type: integer, example: 4 }
+ *               status: { type: string, enum: [available, occupied, maintenance, inactive], default: available }
+ *               price_override: { type: number, nullable: true, example: 2000 }
  *               description: { type: string }
- *               is_active: { type: boolean }
+ *               is_active: { type: boolean, default: true }
  *     responses:
  *       201:
  *         description: Created room
@@ -192,13 +263,13 @@ router.get('/:id', roomsController.getRoomById);
  *                 success: { type: boolean, example: true }
  *                 data: { $ref: '#/components/schemas/Room' }
  */
-router.post('/', roomsController.createRoom);
+router.post('/', authenticate, authorize('admin', 'manager'), roomsController.createRoom);
 
 /**
  * @swagger
  * /api/rooms/{id}:
  *   put:
- *     summary: Update room details
+ *     summary: Update room details (admin/manager only)
  *     tags: [Rooms]
  *     security:
  *       - bearerAuth: []
@@ -209,6 +280,7 @@ router.post('/', roomsController.createRoom);
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: Room UUID
  *     requestBody:
  *       required: true
  *       content:
@@ -232,7 +304,11 @@ router.post('/', roomsController.createRoom);
  *                 data: { $ref: '#/components/schemas/Room' }
  *       404:
  *         description: Room not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', roomsController.updateRoom);
+router.put('/:id', authenticate, authorize('admin', 'manager'), roomsController.updateRoom);
 
 module.exports = router;

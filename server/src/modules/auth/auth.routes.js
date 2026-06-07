@@ -1,7 +1,7 @@
 const express = require('express');
 const authController = require('./auth.controller');
 const { registerValidation, loginValidation, validate } = require('./auth.validation');
-const { verifyToken } = require('../../middleware/auth');
+const { authenticate } = require('../../middleware/auth');
 
 const router = express.Router();
 
@@ -129,6 +129,6 @@ router.post('/login', loginValidation, validate, authController.login);
  *       404:
  *         description: User not found
  */
-router.get('/me', verifyToken, authController.getMe);
+router.get('/me', authenticate, authController.getMe);
 
 module.exports = router;

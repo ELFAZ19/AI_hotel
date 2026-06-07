@@ -36,8 +36,12 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Body parser
-app.use(express.json());
+// Body parser with raw body saved for webhooks
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 // Routes
 app.use('/api/auth', authRoutes);

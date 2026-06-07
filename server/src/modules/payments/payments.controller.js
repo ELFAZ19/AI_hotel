@@ -1,28 +1,29 @@
-const paymentsService = require('./payments.service');
+const chapaService = require('./chapa.service');
 
-const getAllPayments = async (req, res, next) => {
+const initiatePayment = async (req, res, next) => {
   try {
-    const payments = await paymentsService.getAllPayments();
-    res.json({ success: true, data: payments });
+    const { reservation_id, amount, email, first_name, last_name } = req.body;
+    
+    // Additional validation could be added here, such as verifying reservation belongs to req.user.id
+    const result = await chapaService.initiatePayment({
+      reservationId: reservation_id,
+      amount,
+      email: email || req.user.email,
+      firstName: first_name || req.user.first_name,
+      lastName: last_name || req.user.last_name
+    });
+    
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-const getPaymentById = async (req, res, next) => {
+const verifyPayment = async (req, res, next) => {
   try {
-    const payment = await paymentsService.getPaymentById(req.params.id);
-    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
-    res.json({ success: true, data: payment });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const initializePayment = async (req, res, next) => {
-  try {
-    const paymentData = await paymentsService.initializePayment(req.body);
-    res.status(201).json({ success: true, data: paymentData });
+    const { txRef } = req.params;
+    const result = await chapaService.verifyPayment(txRef);
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
@@ -30,19 +31,35 @@ const initializePayment = async (req, res, next) => {
 
 const handleWebhook = async (req, res, next) => {
   try {
-    // Chapa sends webhook event, we should verify the signature in a real app
-    // Here we assume simple payload containing status
-    const { trx_ref, status } = req.body;
-    await paymentsService.updatePaymentStatus(trx_ref, status, req.body);
-    res.status(200).send('OK');
+    // req.rawBody is captured by the modified express.json() in app.js
+    const signature = req.headers['x-chapa-signature'] || req.headers['chapa-signature'];
+    const result = await chapaService.handleWebhook(req.rawBody, signature);
+    res.json(result);
+  } catch (error) {
+    // Webhook should probably return 200 even on error unless it's a signature mismatch, 
+    // to prevent Chapa from retrying infinitely for logical errors.
+    // But for signature errors, return 401.
+    if (error.statusCode === 401) {
+      return res.status(401).json({ message: error.message });
+    }
+    console.error('Webhook error:', error);
+    res.status(200).json({ processed: false, error: error.message });
+  }
+};
+
+const getPaymentByReservationId = async (req, res, next) => {
+  try {
+    const payment = await chapaService.getPaymentByReservationId(req.params.id);
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+    res.json({ success: true, data: payment });
   } catch (error) {
     next(error);
   }
 };
 
 module.exports = {
-  getAllPayments,
-  getPaymentById,
-  initializePayment,
-  handleWebhook
+  initiatePayment,
+  verifyPayment,
+  handleWebhook,
+  getPaymentByReservationId
 };

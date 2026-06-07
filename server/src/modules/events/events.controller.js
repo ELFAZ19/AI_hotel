@@ -1,77 +1,80 @@
 const eventsService = require('./events.service');
 
-const getAllEventSpaces = async (req, res, next) => {
+const getEventSpaces = async (req, res, next) => {
   try {
-    const spaces = await eventsService.getAllEventSpaces();
+    const spaces = await eventsService.getEventSpaces();
     res.json({ success: true, data: spaces });
   } catch (error) {
     next(error);
   }
 };
 
-const getEventSpaceById = async (req, res, next) => {
+const createBooking = async (req, res, next) => {
   try {
-    const space = await eventsService.getEventSpaceById(req.params.id);
-    if (!space) return res.status(404).json({ success: false, message: 'Event space not found' });
-    res.json({ success: true, data: space });
+    const guestId = req.user.id;
+    const { spaceId, eventName, eventType, eventDate, startTime, endTime, guestCount, notes } = req.body;
+    
+    const newBooking = await eventsService.createBooking({
+      guestId,
+      spaceId,
+      eventName,
+      eventType,
+      eventDate,
+      startTime,
+      endTime,
+      guestCount,
+      notes
+    });
+    
+    res.status(201).json({ success: true, data: newBooking });
   } catch (error) {
+    if (error.message.includes('not available') || error.message.includes('not found') || error.message.includes('after startTime')) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };
 
-const createEventSpace = async (req, res, next) => {
+const getMyBookings = async (req, res, next) => {
   try {
-    const newSpace = await eventsService.createEventSpace(req.body);
-    res.status(201).json({ success: true, data: newSpace });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getAllEventBookings = async (req, res, next) => {
-  try {
-    const bookings = await eventsService.getAllEventBookings(req.query);
+    const guestId = req.user.id;
+    const bookings = await eventsService.getMyBookings(guestId);
     res.json({ success: true, data: bookings });
   } catch (error) {
     next(error);
   }
 };
 
-const getEventBookingById = async (req, res, next) => {
+const getAllBookings = async (req, res, next) => {
   try {
-    const booking = await eventsService.getEventBookingById(req.params.id);
-    if (!booking) return res.status(404).json({ success: false, message: 'Event booking not found' });
-    res.json({ success: true, data: booking });
+    const { date, status, space_id, page, limit } = req.query;
+    const result = await eventsService.getAllBookings({ date, status, space_id, page, limit });
+    res.json({ success: true, ...result });
   } catch (error) {
     next(error);
   }
 };
 
-const createEventBooking = async (req, res, next) => {
+const updateStatus = async (req, res, next) => {
   try {
-    const newBooking = await eventsService.createEventBooking(req.body);
-    res.status(201).json({ success: true, data: newBooking });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const updateEventBooking = async (req, res, next) => {
-  try {
-    const updatedBooking = await eventsService.updateEventBooking(req.params.id, req.body);
-    if (!updatedBooking) return res.status(404).json({ success: false, message: 'Event booking not found' });
+    const staffId = req.user.id;
+    const ipAddress = req.ip;
+    const { status } = req.body;
+    
+    const updatedBooking = await eventsService.updateStatus(req.params.id, status, staffId, ipAddress);
     res.json({ success: true, data: updatedBooking });
   } catch (error) {
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };
 
 module.exports = {
-  getAllEventSpaces,
-  getEventSpaceById,
-  createEventSpace,
-  getAllEventBookings,
-  getEventBookingById,
-  createEventBooking,
-  updateEventBooking
+  getEventSpaces,
+  createBooking,
+  getMyBookings,
+  getAllBookings,
+  updateStatus
 };
