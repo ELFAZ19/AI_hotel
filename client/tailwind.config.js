@@ -43,8 +43,8 @@ export default {
         }
       },
       fontFamily: {
-        serif: ['Georgia', 'ui-serif', 'Cambria', 'Times New Roman', 'Times', 'serif'],
-        sans:  ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        sans:  ['"Montserrat"', 'system-ui', '-apple-system', 'sans-serif'],
       },
       animation: {
         'fade-in':    'fadeIn 0.6s ease-out',

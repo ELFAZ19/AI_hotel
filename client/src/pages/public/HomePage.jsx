@@ -35,12 +35,12 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-900/50 to-transparent"></div>
         
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto animate-fade-in-up">
-          <p className="text-gold-400 font-semibold tracking-widest uppercase text-sm mb-4">Dire Dawa's Premier Destination</p>
-          <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl text-white font-bold mb-6 leading-tight">
-            Experience Luxury at <br />
-            <span className="text-gradient">Adane International</span>
+          <p className="text-gold-400 font-medium tracking-[0.2em] uppercase text-sm mb-4">Dire Dawa's Premier Destination</p>
+          <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl text-white mb-6 leading-tight">
+            Experience <span className="italic font-light">Luxury</span> at <br />
+            <span className="text-gradient font-bold">Adane International</span>
           </h1>
-          <p className="text-gray-300 text-lg md:text-xl mb-10 max-w-2xl mx-auto font-light">
+          <p className="text-gray-300 text-lg md:text-xl mb-10 max-w-2xl mx-auto font-light tracking-wide">
             Where Ethiopian hospitality meets world-class comfort. Discover an oasis of elegance in the heart of the city.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -71,9 +71,9 @@ export default function HomePage() {
       <section id="featured-rooms" className="py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-gold-500 font-semibold tracking-widest uppercase text-sm mb-3">Our Accommodation</h2>
-            <h3 className="font-serif text-4xl text-navy-900 font-bold mb-4">Featured Rooms</h3>
-            <p className="text-gray-600">Designed with your comfort in mind, our rooms offer the perfect blend of modern amenities and elegant design.</p>
+            <h2 className="text-gold-500 font-medium tracking-[0.2em] uppercase text-sm mb-3">Our Accommodation</h2>
+            <h3 className="font-serif text-4xl text-navy-900 font-medium mb-4">Featured <span className="italic font-light">Rooms</span></h3>
+            <p className="text-gray-600 font-light tracking-wide">Designed with your comfort in mind, our rooms offer the perfect blend of modern amenities and elegant design.</p>
           </div>
 
           {loading ? (
@@ -145,8 +145,8 @@ export default function HomePage() {
       {/* Testimonials */}
       <section className="py-24 bg-navy-950 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-gold-500 font-semibold tracking-widest uppercase text-sm mb-3">Testimonials</h2>
-          <h3 className="font-serif text-4xl font-bold mb-16">What Our Guests Say</h3>
+          <h2 className="text-gold-500 font-medium tracking-[0.2em] uppercase text-sm mb-3">Testimonials</h2>
+          <h3 className="font-serif text-4xl font-medium mb-16">What Our <span className="italic font-light">Guests</span> Say</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
@@ -169,8 +169,8 @@ export default function HomePage() {
       {/* CTA */}
       <section className="py-24 bg-gold-500">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="font-serif text-4xl text-navy-950 font-bold mb-6">Ready to Experience Luxury?</h2>
-          <p className="text-navy-900/80 text-lg mb-10">Book your stay today and discover the perfect blend of comfort and elegance.</p>
+          <h2 className="font-serif text-4xl text-navy-950 font-medium mb-6">Ready to Experience <span className="italic font-light">Luxury</span>?</h2>
+          <p className="text-navy-900/80 text-lg mb-10 font-light tracking-wide">Book your stay today and discover the perfect blend of comfort and elegance.</p>
           <button 
             onClick={() => navigate('/rooms')}
             className="px-8 py-4 bg-navy-950 hover:bg-navy-900 text-white rounded-xl font-medium transition-colors shadow-xl"

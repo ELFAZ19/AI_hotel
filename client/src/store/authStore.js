@@ -1,33 +1,27 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-export const useAuthStore = create((set) => ({
-  user: null,
-  token: null,
+export const useAuthStore = create(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
 
-  setAuth: (user, token) => {
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    set({ user, token });
-  },
+      setAuth: (user, token) => {
+        set({ user, token });
+      },
 
-  logout: () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    set({ user: null, token: null });
-  },
+      logout: () => {
+        set({ user: null, token: null });
+      },
 
-  initAuth: () => {
-    const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('user');
-
-    if (token && user) {
-      try {
-        set({ token, user: JSON.parse(user) });
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-      }
+      initAuth: () => {
+        // Hydration happens automatically with persist middleware
+        // This empty function remains to prevent breaking existing App.jsx calls
+      },
+    }),
+    {
+      name: 'auth-storage',
     }
-  },
-}));
+  )
+);

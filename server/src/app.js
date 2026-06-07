@@ -21,7 +21,11 @@ app.use(helmet());
 // CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: [
+      'http://localhost:5173',
+      'https://ai-hotel.onrender.com',
+      process.env.CLIENT_URL
+    ].filter(Boolean),
     credentials: true,
   })
 );
