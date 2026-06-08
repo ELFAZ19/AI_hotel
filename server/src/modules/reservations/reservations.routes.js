@@ -65,7 +65,6 @@ router.use(authenticate);
  */
 router.post(
   '/',
-  authorize('guest'),
   validateCreateReservation,
   reservationsController.createReservation
 );
@@ -93,7 +92,6 @@ router.post(
  */
 router.get(
   '/my',
-  authorize('guest'),
   reservationsController.getMyReservations
 );
 
@@ -132,7 +130,6 @@ router.get(
  */
 router.patch(
   '/:id/cancel',
-  authorize('guest'),
   reservationsController.cancelReservation
 );
 

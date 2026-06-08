@@ -60,7 +60,6 @@ router.use(authenticate);
  */
 router.post(
   '/reservations',
-  authorize('guest'),
   validateCreateRestaurantReservation,
   restaurantController.createReservation
 );
@@ -88,7 +87,6 @@ router.post(
  */
 router.get(
   '/reservations/my',
-  authorize('guest'),
   restaurantController.getMyReservations
 );
 

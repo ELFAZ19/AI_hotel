@@ -140,6 +140,25 @@ const seedData = async () => {
       logger.info("Event spaces already exist, skipping.");
     }
 
+    // ======================== SEED RESTAURANT RESERVATIONS ========================
+    logger.info("Seeding restaurant reservations...");
+    const restResExist = await client.query("SELECT COUNT(*) FROM restaurant_reservations");
+    if (parseInt(restResExist.rows[0].count) === 0) {
+      const guestRes = await client.query("SELECT id FROM users WHERE email = 'guest@adanehotel.com'");
+      const guestId = guestRes.rows[0]?.id;
+      if (guestId) {
+        await client.query(`
+          INSERT INTO restaurant_reservations (guest_id, reservation_date, reservation_time, party_size, special_requests, status) VALUES
+          ($1, CURRENT_DATE + INTERVAL '1 day', '19:00', 2, 'Window seat preferred', 'pending'),
+          ($1, CURRENT_DATE + INTERVAL '2 days', '20:30', 4, 'Anniversary dinner', 'confirmed'),
+          ($1, CURRENT_DATE, '18:00', 1, '', 'seated')
+        `, [guestId]);
+        logger.success("Restaurant reservations seeded.");
+      }
+    } else {
+      logger.info("Restaurant reservations already exist, skipping.");
+    }
+
     logger.success("=== All seed data inserted successfully! ===");
     logger.info("");
     logger.info("  Login credentials for all seed users:");
