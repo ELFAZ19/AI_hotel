@@ -1,6 +1,10 @@
-CREATE TYPE restaurant_status AS ENUM ('pending', 'confirmed', 'seated', 'completed', 'cancelled');
+-- 005_restaurant.sql
+DO $$ BEGIN
+  CREATE TYPE restaurant_status AS ENUM ('pending', 'confirmed', 'seated', 'completed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE restaurant_reservations (
+CREATE TABLE IF NOT EXISTS restaurant_reservations (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   guest_id          UUID REFERENCES users(id) ON DELETE RESTRICT,
   reservation_date  DATE NOT NULL,
@@ -12,5 +16,5 @@ CREATE TABLE restaurant_reservations (
   updated_at        TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_restaurant_date ON restaurant_reservations(reservation_date);
-CREATE INDEX idx_restaurant_guest ON restaurant_reservations(guest_id);
+CREATE INDEX IF NOT EXISTS idx_restaurant_date ON restaurant_reservations(reservation_date);
+CREATE INDEX IF NOT EXISTS idx_restaurant_guest ON restaurant_reservations(guest_id);

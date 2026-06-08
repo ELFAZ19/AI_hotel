@@ -1,8 +1,12 @@
-CREATE TYPE reservation_status AS ENUM (
-  'pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'no_show'
-);
+-- 003_reservations.sql
+DO $$ BEGIN
+  CREATE TYPE reservation_status AS ENUM (
+    'pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'no_show'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE reservations (
+CREATE TABLE IF NOT EXISTS reservations (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   guest_id          UUID REFERENCES users(id) ON DELETE RESTRICT,
   room_id           UUID REFERENCES rooms(id) ON DELETE RESTRICT,
@@ -23,7 +27,7 @@ CREATE TABLE reservations (
   CONSTRAINT valid_dates CHECK (check_out > check_in)
 );
 
-CREATE INDEX idx_reservations_guest ON reservations(guest_id);
-CREATE INDEX idx_reservations_room ON reservations(room_id);
-CREATE INDEX idx_reservations_dates ON reservations(check_in, check_out);
-CREATE INDEX idx_reservations_status ON reservations(status);
+CREATE INDEX IF NOT EXISTS idx_reservations_guest ON reservations(guest_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_room ON reservations(room_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_dates ON reservations(check_in, check_out);
+CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);

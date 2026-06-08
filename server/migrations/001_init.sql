@@ -1,6 +1,8 @@
-DROP TYPE IF EXISTS user_role CASCADE;
-
-CREATE TYPE user_role AS ENUM ('guest', 'receptionist', 'manager', 'admin');
+-- 001_init.sql
+DO $$ BEGIN
+  CREATE TYPE user_role AS ENUM ('guest', 'receptionist', 'manager', 'admin');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS users (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

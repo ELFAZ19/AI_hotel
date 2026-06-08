@@ -1,4 +1,5 @@
-CREATE TABLE reviews (
+-- 007_reviews.sql
+CREATE TABLE IF NOT EXISTS reviews (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   guest_id        UUID REFERENCES users(id) ON DELETE RESTRICT,
   reservation_id  UUID REFERENCES reservations(id) ON DELETE CASCADE,

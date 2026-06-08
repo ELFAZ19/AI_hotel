@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node src/server.js",
     "start": "node src/server.js",
-    "migrate": "node src/utils/runMigrations.js"
+    "migrate": "node src/utils/runMigrations.js",
+    "seed": "node src/utils/seedData.js",
+    "reset": "node src/utils/resetDb.js && npm run migrate"
   },
   "keywords": [],
   "author": "",
