@@ -38,6 +38,22 @@ export const getAllRooms = async (filters = {}) => {
 };
 
 /**
+ * Get rooms grouped by type with availability counts
+ * @param {string} [checkIn]  - Check-in date (YYYY-MM-DD)
+ * @param {string} [checkOut] - Check-out date (YYYY-MM-DD)
+ * @param {number} [guests]   - Minimum guest capacity
+ * @returns {Promise<Array>} Room type summaries with availability
+ */
+export const getRoomSummary = async (checkIn, checkOut, guests) => {
+  const params = {};
+  if (checkIn) params.check_in = checkIn;
+  if (checkOut) params.check_out = checkOut;
+  if (guests) params.guests = guests;
+  const { data } = await api.get('/rooms/summary', { params });
+  return data;
+};
+
+/**
  * Get a single room by ID (includes all images)
  * @param {string} id - Room UUID
  * @returns {Promise<Object>} Full room details

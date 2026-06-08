@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getAvailableRooms, getAllRooms, getRoomTypes } from '../../services/roomService';
+import { getRoomSummary, getRoomTypes } from '../../services/roomService';
 import RoomCard from '../../components/rooms/RoomCard';
 import SearchBar from '../../components/booking/SearchBar';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
@@ -14,7 +14,7 @@ export default function RoomsPage() {
   const guests = searchParams.get('guests');
   const typeFilterId = searchParams.get('type');
 
-  const [rooms, setRooms] = useState([]);
+  const [roomSummary, setRoomSummary] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,29 +35,21 @@ export default function RoomsPage() {
   }, []);
 
   useEffect(() => {
-    const fetchRooms = async () => {
+    const fetchSummary = async () => {
       setLoading(true);
       try {
-        let res;
-        if (checkIn && checkOut) {
-          // Date search
-          res = await getAvailableRooms(checkIn, checkOut, guests);
-        } else {
-          // General listing
-          res = await getAllRooms({ status: 'available' });
-        }
-        
+        const res = await getRoomSummary(checkIn, checkOut, guests);
         if (res.success) {
-          setRooms(res.data);
+          setRoomSummary(res.data);
         }
       } catch (error) {
-        console.error('Error fetching rooms:', error);
+        console.error('Error fetching room summary:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchRooms();
+    fetchSummary();
   }, [checkIn, checkOut, guests]);
 
   const handleTypeToggle = (typeId) => {
@@ -67,9 +59,9 @@ export default function RoomsPage() {
   };
 
   // Apply client-side filtering for room types
-  const filteredRooms = rooms.filter(room => {
+  const filteredRooms = roomSummary.filter(item => {
     if (selectedTypes.length === 0) return true;
-    return selectedTypes.includes(room.room_type_id);
+    return selectedTypes.includes(item.room_type_id);
   });
 
   const isSearchMode = !!(checkIn && checkOut);
@@ -148,8 +140,8 @@ export default function RoomsPage() {
               </div>
             ) : filteredRooms.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
-                {filteredRooms.map(room => (
-                  <RoomCard key={room.id} room={room} />
+                {filteredRooms.map(item => (
+                  <RoomCard key={item.room_type_id} room={item} />
                 ))}
               </div>
             ) : (

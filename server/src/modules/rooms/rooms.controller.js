@@ -67,6 +67,20 @@ const updateRoom = async (req, res, next) => {
   }
 };
 
+const getRoomSummary = async (req, res, next) => {
+  try {
+    const { check_in, check_out, guests } = req.query;
+    const summary = await roomsService.getRoomSummary({
+      checkIn: check_in,
+      checkOut: check_out,
+      guests
+    });
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getAvailableRooms = async (req, res, next) => {
   try {
     const { check_in, check_out, guests, room_type_id } = req.query;
@@ -93,5 +107,6 @@ module.exports = {
   getRoomById,
   createRoom,
   updateRoom,
-  getAvailableRooms
+  getAvailableRooms,
+  getRoomSummary
 };

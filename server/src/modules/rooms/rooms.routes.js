@@ -195,6 +195,56 @@ router.get('/available', roomsController.getAvailableRooms);
 
 /**
  * @swagger
+ * /api/rooms/summary:
+ *   get:
+ *     summary: Get rooms grouped by type with availability count
+ *     tags: [Rooms]
+ *     parameters:
+ *       - in: query
+ *         name: check_in
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Check-in date (YYYY-MM-DD) for availability check
+ *       - in: query
+ *         name: check_out
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Check-out date (YYYY-MM-DD) for availability check
+ *       - in: query
+ *         name: guests
+ *         schema:
+ *           type: integer
+ *         description: Minimum guest capacity required
+ *     responses:
+ *       200:
+ *         description: Room types with availability counts and a representative room
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       room_type_id: { type: integer }
+ *                       room_type_name: { type: string }
+ *                       description: { type: string }
+ *                       base_price: { type: number }
+ *                       max_guests: { type: integer }
+ *                       amenities: { type: array, items: { type: string } }
+ *                       total_count: { type: integer }
+ *                       available_count: { type: integer }
+ *                       representative_room: { type: object }
+ */
+router.get('/summary', roomsController.getRoomSummary);
+
+/**
+ * @swagger
  * /api/rooms/{id}:
  *   get:
  *     summary: Get room by ID (includes all images)

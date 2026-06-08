@@ -193,6 +193,87 @@ const setRoomStatus = async (id, status) => {
   return result.rows[0];
 };
 
+// ---------- Room Summary (grouped by type) ----------
+const getRoomSummary = async ({ checkIn, checkOut, guests }) => {
+  // 1. Get all room types
+  const typesResult = await pool.query('SELECT * FROM room_types ORDER BY base_price ASC');
+  const roomTypes = typesResult.rows;
+
+  const summary = [];
+
+  for (const type of roomTypes) {
+    // Skip types that don't fit the guest requirement
+    if (guests && type.max_guests < Number(guests)) continue;
+
+    // 2. Get all active rooms of this type
+    const roomsResult = await pool.query(
+      `SELECT r.*, 
+              COALESCE(r.price_override, $2) AS effective_price,
+              img.url AS primary_image_url
+       FROM rooms r
+       LEFT JOIN room_images img ON r.id = img.room_id AND img.is_primary = true
+       WHERE r.room_type_id = $1 AND r.is_active = true
+       ORDER BY r.room_number ASC`,
+      [type.id, type.base_price]
+    );
+
+    const totalRooms = roomsResult.rows;
+    const totalCount = totalRooms.length;
+
+    if (totalCount === 0) continue; // No rooms of this type exist
+
+    let availableRooms;
+
+    if (checkIn && checkOut) {
+      // 3. Find which rooms have conflicting reservations
+      const bookedResult = await pool.query(
+        `SELECT DISTINCT room_id FROM reservations
+         WHERE status NOT IN ('cancelled', 'checked_out', 'no_show')
+           AND check_in < $2 AND check_out > $1
+           AND room_id IN (SELECT id FROM rooms WHERE room_type_id = $3 AND is_active = true)`,
+        [checkIn, checkOut, type.id]
+      );
+      const bookedRoomIds = new Set(bookedResult.rows.map(r => r.room_id));
+      availableRooms = totalRooms.filter(r => !bookedRoomIds.has(r.id));
+    } else {
+      // No date filter: show all non-maintenance rooms as "available"
+      availableRooms = totalRooms.filter(r => r.status === 'available');
+    }
+
+    const availableCount = availableRooms.length;
+
+    // Pick a representative room (first available, or first overall if none available)
+    const representativeRoom = availableRooms[0] || totalRooms[0];
+
+    // Parse amenities
+    let amenities = type.amenities;
+    if (typeof amenities === 'string') {
+      try { amenities = JSON.parse(amenities); } catch { amenities = []; }
+    }
+
+    summary.push({
+      room_type_id: type.id,
+      room_type_name: type.name,
+      description: type.description,
+      base_price: type.base_price,
+      max_guests: type.max_guests,
+      amenities: amenities || [],
+      total_count: totalCount,
+      available_count: availableCount,
+      representative_room: {
+        id: representativeRoom.id,
+        room_number: representativeRoom.room_number,
+        floor: representativeRoom.floor,
+        effective_price: Number(representativeRoom.effective_price),
+        primary_image_url: representativeRoom.primary_image_url,
+        status: representativeRoom.status,
+      },
+    });
+  }
+
+  return summary;
+};
+
 module.exports = {
   // Room Types
   getAllRoomTypes,
@@ -212,5 +293,7 @@ module.exports = {
   deleteRoomImage,
   // Status
   setRoomStatus,
+  // Summary
+  getRoomSummary,
 };
 

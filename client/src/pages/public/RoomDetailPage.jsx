@@ -87,7 +87,7 @@ export default function RoomDetailPage() {
             <div>
               <h1 className="font-serif text-4xl font-bold text-navy-900 mb-2">{typeName}</h1>
               <p className="text-gray-500 flex items-center gap-2">
-                <MapPin className="w-4 h-4" /> Room {room.room_number} • Floor {room.floor}
+              <MapPin className="w-4 h-4" /> Floor {room.floor} • Up to {maxGuests} guests
               </p>
             </div>
             <div className="text-right">
