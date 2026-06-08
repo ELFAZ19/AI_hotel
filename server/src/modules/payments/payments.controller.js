@@ -1,4 +1,5 @@
 const chapaService = require('./chapa.service');
+const { pool } = require('../../config/db');
 
 const initiatePayment = async (req, res, next) => {
   try {
@@ -15,6 +16,15 @@ const initiatePayment = async (req, res, next) => {
     
     res.json({ success: true, data: result });
   } catch (error) {
+    // If payment initialization fails, the room is stuck in "pending" status.
+    // We must delete the reservation so the room becomes available again.
+    if (req.body && req.body.reservation_id) {
+      try {
+        await pool.query('DELETE FROM reservations WHERE id = $1 AND status = $2', [req.body.reservation_id, 'pending']);
+      } catch (dbError) {
+        console.error('Failed to clean up stuck reservation:', dbError);
+      }
+    }
     next(error);
   }
 };

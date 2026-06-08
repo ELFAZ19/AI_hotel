@@ -14,8 +14,11 @@ const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Fetch user from DB to get role
-    const result = await pool.query('SELECT id, role FROM users WHERE id = $1', [decoded.userId]);
+    // Fetch user from DB to get role and details
+    const result = await pool.query(
+      'SELECT id, role, email, first_name, last_name FROM users WHERE id = $1', 
+      [decoded.userId]
+    );
     if (result.rows.length === 0) {
       return error(res, 'User not found', 401);
     }

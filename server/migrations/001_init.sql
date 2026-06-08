@@ -16,3 +16,12 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMP DEFAULT NOW(),
   updated_at    TIMESTAMP DEFAULT NOW()
 );
+
+/*
+admin@adanehotel.com	Admin	Password123!
+manager@adanehotel.com	Manager	Password123!
+reception@adanehotel.com	Receptionist	Password123!
+guest@adanehotel.com	Guest	Password123!
+sarah.m@email.com	Guest	Password123!
+david.l@email.com	Guest	Password123!
+*/

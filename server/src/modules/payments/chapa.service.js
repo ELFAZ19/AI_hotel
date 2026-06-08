@@ -21,7 +21,7 @@ const initiatePayment = async ({ reservationId, amount, email, firstName, lastNa
     callback_url: `${SERVER_URL}/api/payments/webhook`,
     return_url: `${CLIENT_URL}/booking/confirmation?tx_ref=${txRef}`,
     customization: {
-      title: 'Adane Hotel Reservation',
+      title: 'Adane Hotel',
       description: 'Payment for your stay'
     }
   };
@@ -44,7 +44,9 @@ const initiatePayment = async ({ reservationId, amount, email, firstName, lastNa
 
     return { checkoutUrl: chapaCheckoutUrl, txRef };
   } catch (error) {
-    throw new Error('Payment initialization failed: ' + (error.response?.data?.message || error.message));
+    const errorMsg = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+    console.error('Chapa Init Error:', error.response?.data || error.message);
+    throw new Error('Payment initialization failed: ' + errorMsg);
   }
 };
 
@@ -55,7 +57,26 @@ const verifyPayment = async (txRef) => {
         Authorization: `Bearer ${CHAPA_SECRET_KEY}`
       }
     });
-    return response.data.data;
+    const data = response.data.data;
+
+    // Fallback: If payment is successful but webhook hasn't hit yet, update DB now
+    if (data.status === 'success') {
+      const paymentResult = await pool.query('SELECT id, reservation_id, status FROM payments WHERE chapa_tx_ref = $1', [txRef]);
+      const payment = paymentResult.rows[0];
+      
+      if (payment && payment.status !== 'success') {
+        await pool.query(
+          `UPDATE payments SET status = 'success', paid_at = NOW(), raw_response = $1, updated_at = NOW() WHERE chapa_tx_ref = $2`,
+          [JSON.stringify(data), txRef]
+        );
+        await pool.query(
+          `UPDATE reservations SET status = 'confirmed', confirmed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [payment.reservation_id]
+        );
+      }
+    }
+
+    return data;
   } catch (error) {
     throw new Error('Payment verification failed: ' + (error.response?.data?.message || error.message));
   }

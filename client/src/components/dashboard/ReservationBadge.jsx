@@ -10,7 +10,7 @@ export default function ReservationBadge({ status }) {
 
   const labels = {
     pending:     'Pending',
-    confirmed:   'Confirmed',
+    confirmed:   'Paid & Confirmed',
     checked_in:  'Checked In',
     checked_out: 'Checked Out',
     cancelled:   'Cancelled',

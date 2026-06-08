@@ -6,7 +6,7 @@ const register = async (req, res, next) => {
     const { email, password, firstName, lastName, phone } = req.body;
 
     const user = await authService.register({
-      email,
+      email: email.toLowerCase().trim(),
       password,
       firstName,
       lastName,
@@ -23,7 +23,7 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const result = await authService.login({ email, password });
+    const result = await authService.login({ email: email.toLowerCase().trim(), password });
 
     return success(res, result);
   } catch (err) {
