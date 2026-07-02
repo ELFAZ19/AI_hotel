@@ -117,12 +117,12 @@ export default function ReservationsPage() {
                 reservations.map((res) => (
                   <tr key={res.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4">
-                      <p className="font-medium text-navy-900">{res.guest?.firstName} {res.guest?.lastName}</p>
-                      <p className="text-xs text-gray-500">{res.guest?.email}</p>
+                      <p className="font-medium text-navy-900">{res.first_name} {res.last_name}</p>
+                      <p className="text-xs text-gray-500">{res.email}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-medium text-gray-900">Room {res.room?.room_number}</p>
-                      <p className="text-xs text-gray-500">{res.room?.room_type?.name}</p>
+                      <p className="font-medium text-gray-900">Room {res.room_number}</p>
+                      <p className="text-xs text-gray-500">{res.room_type_name}</p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-gray-900">{res.check_in ? format(new Date(res.check_in), 'MMM dd, yyyy') : 'TBD'}</p>

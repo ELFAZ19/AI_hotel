@@ -8,6 +8,9 @@ if (!apiBaseURL.endsWith('/api')) {
 
 const axiosInstance = axios.create({
   baseURL: apiBaseURL,
+  headers: {
+    'Cache-Control': 'no-cache',
+  },
 });
 
 // Request interceptor - attach token

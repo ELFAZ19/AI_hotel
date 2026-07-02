@@ -111,9 +111,13 @@ const deleteRoom = async (id) => {
 
 // ---------- Availability ----------
 const checkAvailability = async ({ roomId, checkIn, checkOut }) => {
+  // Exclude 'pending' reservations older than 15 minutes (unpaid/abandoned),
+  // as well as terminal statuses. This prevents stale unpaid reservations from
+  // permanently blocking a room.
   const result = await pool.query(
     `SELECT 1 FROM reservations WHERE room_id = $1
      AND status NOT IN ('cancelled', 'checked_out', 'no_show')
+     AND NOT (status = 'pending' AND created_at < NOW() - INTERVAL '15 minutes')
      AND check_in < $3 AND check_out > $2 LIMIT 1`,
     [roomId, checkIn, checkOut]
   );

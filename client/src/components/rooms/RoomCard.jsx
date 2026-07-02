@@ -1,11 +1,12 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useBookingStore } from '../../store/bookingStore';
 import AmenityBadge from './AmenityBadge';
 import { BedDouble, Users, DoorOpen, ArrowRight, Ban } from 'lucide-react';
 
 export default function RoomCard({ room }) {
   const navigate = useNavigate();
-  const setSelectedRoom = useBookingStore((s) => s.setSelectedRoom);
+  const [searchParams] = useSearchParams();
+  const { setSelectedRoom, setSearchParams: storeSetSearchParams } = useBookingStore();
 
   // Support both legacy individual room data and new summary data
   const isSummary = !!room.room_type_name && room.representative_room;
@@ -31,8 +32,12 @@ export default function RoomCard({ room }) {
   };
 
   const handleBook = () => {
+    // Read dates from URL params (set by SearchBar)
+    const urlCheckIn  = searchParams.get('check_in');
+    const urlCheckOut = searchParams.get('check_out');
+    const urlGuests   = searchParams.get('guests');
+
     if (isSummary) {
-      // Set the representative room as the selected room, but use type-level info
       setSelectedRoom({
         id: room.representative_room.id,
         room_number: room.representative_room.room_number,
@@ -48,6 +53,20 @@ export default function RoomCard({ room }) {
     } else {
       setSelectedRoom(room);
     }
+
+    // Store dates from URL into booking store if present.
+    // Parse as local-time by appending T00:00:00 — bare "YYYY-MM-DD" strings are
+    // treated as UTC by the Date constructor, which shifts the day backward in
+    // timezones behind UTC (e.g. Africa/Addis_Ababa is UTC+3) and can make
+    // check_out equal check_in after format(), causing the server to reject with 400.
+    if (urlCheckIn && urlCheckOut) {
+      storeSetSearchParams(
+        new Date(`${urlCheckIn}T00:00:00`),
+        new Date(`${urlCheckOut}T00:00:00`),
+        urlGuests ? Number(urlGuests) : 1
+      );
+    }
+
     navigate('/booking');
   };
 

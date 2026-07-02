@@ -30,6 +30,8 @@ import DashboardHome from '../pages/dashboard/DashboardHome';
 import ReservationsPage from '../pages/dashboard/ReservationsPage';
 import RoomsManagePage from '../pages/dashboard/RoomsManagePage';
 import RestaurantManagePage from '../pages/dashboard/RestaurantManagePage';
+import ReportsPage from '../pages/dashboard/ReportsPage';
+import UsersPage from '../pages/dashboard/UsersPage';
 
 // Role-based protection wrapper for dashboard
 const RoleRoute = ({ children, allowedRoles }) => {
@@ -38,6 +40,15 @@ const RoleRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/" replace />;
   }
   return children;
+};
+
+// Redirect receptionists to reservations instead of overview
+const DashboardIndexRoute = () => {
+  const user = useAuthStore(state => state.user);
+  if (user?.role === 'receptionist') {
+    return <Navigate to="/dashboard/reservations" replace />;
+  }
+  return <DashboardHome />;
 };
 
 export default function AppRouter() {
@@ -71,7 +82,7 @@ export default function AppRouter() {
             </RoleRoute>
           </ProtectedRoute>
         }>
-          <Route index element={<DashboardHome />} />
+          <Route index element={<DashboardIndexRoute />} />
           <Route path="reservations" element={<ReservationsPage />} />
           <Route path="rooms" element={
             <RoleRoute allowedRoles={['admin', 'manager']}>
@@ -81,7 +92,12 @@ export default function AppRouter() {
           <Route path="restaurant" element={<RestaurantManagePage />} />
           <Route path="reports" element={
             <RoleRoute allowedRoles={['admin', 'manager']}>
-              <div className="flex items-center justify-center h-full text-gray-500">Reports Module Coming Soon</div>
+              <ReportsPage />
+            </RoleRoute>
+          } />
+          <Route path="users" element={
+            <RoleRoute allowedRoles={['admin', 'manager']}>
+              <UsersPage />
             </RoleRoute>
           } />
         </Route>

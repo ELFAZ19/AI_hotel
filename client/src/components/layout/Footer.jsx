@@ -90,6 +90,7 @@ export default function Footer() {
             © {currentYear} Adane International Hotel. All rights reserved.
           </p>
           <div className="flex gap-6">
+            <a href="https://yeabsira-dejene19.web.app/" className="text-xs text-gray-500 hover:text-gold-400 transition-colors">developed by YABSIRA DEJENE  </a>
             <a href="#" className="text-xs text-gray-500 hover:text-gold-400 transition-colors">Privacy Policy</a>
             <a href="#" className="text-xs text-gray-500 hover:text-gold-400 transition-colors">Terms of Service</a>
           </div>

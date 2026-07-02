@@ -5,6 +5,7 @@ import {
   BedDouble,
   UtensilsCrossed,
   BarChart3,
+  Users,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -16,11 +17,12 @@ export default function Sidebar({ collapsed, onToggle }) {
   const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
 
   const navItems = [
-    { label: 'Overview',      to: '/dashboard',              icon: LayoutDashboard,  visible: true },
+    { label: 'Overview',      to: '/dashboard',              icon: LayoutDashboard,  visible: isManagerOrAdmin },
     { label: 'Reservations',  to: '/dashboard/reservations', icon: CalendarCheck,    visible: true },
     { label: 'Rooms',         to: '/dashboard/rooms',        icon: BedDouble,        visible: isManagerOrAdmin },
     { label: 'Restaurant',    to: '/dashboard/restaurant',   icon: UtensilsCrossed,  visible: true },
     { label: 'Reports',       to: '/dashboard/reports',      icon: BarChart3,        visible: isManagerOrAdmin },
+    { label: 'Users',         to: '/dashboard/users',        icon: Users,            visible: isManagerOrAdmin },
   ];
 
   return (

@@ -2,6 +2,28 @@ const { pool } = require('../../config/db');
 const roomsService = require('../rooms/rooms.service');
 const auditLog = require('../../utils/auditLog');
 
+/**
+ * Cancel pending reservations that were never paid within the expiry window.
+ * Called on server start and periodically to keep the DB clean.
+ */
+const expireStaleReservations = async (windowMinutes = 15) => {
+  const result = await pool.query(
+    `UPDATE reservations
+     SET status = 'cancelled',
+         cancelled_at = NOW(),
+         cancellation_note = 'Auto-cancelled: payment not completed within time limit',
+         updated_at = NOW()
+     WHERE status = 'pending'
+       AND created_at < NOW() - ($1 || ' minutes')::INTERVAL
+     RETURNING id`,
+    [windowMinutes]
+  );
+  if (result.rowCount > 0) {
+    console.log(`[INFO] Auto-cancelled ${result.rowCount} expired pending reservation(s)`);
+  }
+  return result.rowCount;
+};
+
 const createReservation = async ({ guestId, roomId, checkIn, checkOut, adults, children, specialRequests }) => {
   // Verify room exists and is active
   const room = await roomsService.getRoomById(roomId);
@@ -220,5 +242,6 @@ module.exports = {
   getReservationById,
   getAllReservations,
   updateReservationStatus,
-  cancelReservation
+  cancelReservation,
+  expireStaleReservations,
 };

@@ -26,8 +26,8 @@ export default function DashboardHome() {
         ]);
 
         if (statsRes.success) setStats(statsRes.data);
-        if (chartRes.success) {
-          // Format data for chart
+        if (chartRes.success && chartRes.data.length > 0) {
+          // Format data for chart — backend returns { date, revenue, reservations_count }
           const formatted = chartRes.data.map(item => ({
             date: item.date ? format(new Date(item.date), 'MMM dd') : 'Unknown',
             revenue: Number(item.revenue),
@@ -55,26 +55,23 @@ export default function DashboardHome() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Total Reservations" 
-          value={stats?.totalReservations || 0} 
+          value={stats?.overview?.totalReservations ?? 0} 
           icon={CalendarRange} 
-          trend={12} // Mock trend for UI
         />
         <StatCard 
           title="Revenue (Month)" 
-          value={`ETB ${(stats?.monthlyRevenue || 0).toLocaleString()}`} 
+          value={`ETB ${(stats?.revenue?.thisMonth ?? 0).toLocaleString()}`} 
           icon={Wallet} 
-          trend={8}
         />
         <StatCard 
           title="Available Rooms" 
-          value={stats?.availableRooms || 0} 
+          value={stats?.overview?.availableRooms ?? 0} 
           icon={BedDouble} 
         />
         <StatCard 
           title="Occupancy Rate" 
-          value={`${stats?.occupancyRate || 0}%`} 
+          value={`${stats?.occupancyRate ?? 0}%`} 
           icon={Percent} 
-          trend={-2}
         />
       </div>
 
@@ -92,16 +89,16 @@ export default function DashboardHome() {
               <div key={res.id} className="flex items-center justify-between pb-4 border-b border-gray-50 last:border-0 last:pb-0">
                 <div>
                   <p className="text-sm font-semibold text-navy-900">
-                    {res.guest?.firstName} {res.guest?.lastName}
+                    {res.guestName}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Room {res.room?.room_number} • {res.check_in ? format(new Date(res.check_in), 'MMM d') : 'TBD'}
+                    Room {res.roomNumber}
                   </p>
                 </div>
                 <div className="text-right">
                   <ReservationBadge status={res.status} />
                   <p className="text-xs font-medium text-gray-600 mt-1">
-                    ETB {Number(res.total_price).toLocaleString()}
+                    ETB {Number(res.totalPrice).toLocaleString()}
                   </p>
                 </div>
               </div>

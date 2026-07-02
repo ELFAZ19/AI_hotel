@@ -23,7 +23,7 @@ const validateGetReservations = (req, res, next) => {
   const { status, guest_id } = req.query;
   const errors = [];
 
-  if (status !== undefined && !VALID_RESERVATION_STATUSES.includes(status)) {
+  if (status !== undefined && status !== '' && !VALID_RESERVATION_STATUSES.includes(status)) {
     errors.push(`status must be one of: ${VALID_RESERVATION_STATUSES.join(', ')}`);
   }
   if (guest_id !== undefined && !isValidUUID(guest_id)) {

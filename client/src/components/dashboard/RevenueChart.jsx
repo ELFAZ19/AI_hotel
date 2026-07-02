@@ -6,7 +6,7 @@ export default function RevenueChart({ data }) {
       <h3 className="text-lg font-bold text-navy-900 mb-6">Revenue Overview</h3>
       <div className="h-72 w-full">
         {data && data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={288}>
             <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
               <XAxis 

@@ -7,7 +7,15 @@ export default function StepSelectRoom({ onNext }) {
 
   if (!selectedRoom) return null;
 
-  const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
+  // Normalize to Date objects (store persists as ISO strings)
+  const checkInDate = checkIn ? (checkIn instanceof Date ? checkIn : new Date(checkIn)) : null;
+  const checkOutDate = checkOut ? (checkOut instanceof Date ? checkOut : new Date(checkOut)) : null;
+
+  // Validate parsed dates
+  const datesValid = checkInDate && checkOutDate
+    && !isNaN(checkInDate.getTime()) && !isNaN(checkOutDate.getTime());
+
+  const nights = datesValid ? differenceInDays(checkOutDate, checkInDate) : 0;
   const price = selectedRoom.price_override || selectedRoom.base_price || selectedRoom.room_type?.base_price || 0;
   const total = price * nights;
   const typeName = selectedRoom.type_name || selectedRoom.room_type?.name || 'Room';
@@ -44,7 +52,7 @@ export default function StepSelectRoom({ onNext }) {
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Dates</p>
                   <p className="text-sm font-medium text-navy-900">
-                    {checkIn ? format(checkIn, 'MMM d, yyyy') : 'TBD'} — {checkOut ? format(checkOut, 'MMM d, yyyy') : 'TBD'}
+                    {checkInDate ? format(checkInDate, 'MMM d, yyyy') : 'TBD'} — {checkOutDate ? format(checkOutDate, 'MMM d, yyyy') : 'TBD'}
                   </p>
                 </div>
               </div>
@@ -76,13 +84,13 @@ export default function StepSelectRoom({ onNext }) {
             
             <button
               onClick={onNext}
-              disabled={!checkIn || !checkOut || nights <= 0}
+              disabled={!datesValid || nights <= 0}
               className="w-full h-12 bg-navy-900 hover:bg-navy-800 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               Continue to Guest Details
             </button>
-            {(!checkIn || !checkOut) && (
-              <p className="text-xs text-red-500 text-center">Please select check-in and check-out dates to continue.</p>
+            {(!datesValid) && (
+              <p className="text-xs text-red-500 text-center">Please go back and select your check-in and check-out dates.</p>
             )}
           </div>
         </div>

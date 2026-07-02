@@ -68,9 +68,8 @@ export default function RoomDetailPage() {
 
   const handleBookNow = () => {
     setSelectedRoom(room);
-    if (checkIn && checkOut) {
-      setSearchParams(checkIn, checkOut, guests);
-    }
+    // Always update dates — clears stale store values if user didn't pick dates here
+    setSearchParams(checkIn, checkOut, guests);
     navigate('/booking');
   };
 

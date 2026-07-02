@@ -99,6 +99,31 @@ const getAvailableRooms = async (req, res, next) => {
   }
 };
 
+const setRoomStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['available', 'occupied', 'maintenance', 'inactive'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: `status must be one of: ${validStatuses.join(', ')}` });
+    }
+    const updatedRoom = await roomsService.setRoomStatus(req.params.id, status);
+    if (!updatedRoom) return res.status(404).json({ success: false, message: 'Room not found' });
+    res.json({ success: true, data: updatedRoom });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteRoom = async (req, res, next) => {
+  try {
+    const room = await roomsService.deleteRoom(req.params.id);
+    if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
+    res.json({ success: true, message: 'Room deactivated successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllRoomTypes,
   getRoomTypeById,
@@ -108,5 +133,7 @@ module.exports = {
   createRoom,
   updateRoom,
   getAvailableRooms,
-  getRoomSummary
+  getRoomSummary,
+  setRoomStatus,
+  deleteRoom,
 };

@@ -361,4 +361,51 @@ router.post('/', authenticate, authorize('admin', 'manager'), roomsController.cr
  */
 router.put('/:id', authenticate, authorize('admin', 'manager'), roomsController.updateRoom);
 
+/**
+ * @swagger
+ * /api/rooms/{id}/status:
+ *   patch:
+ *     summary: Set room status (admin/manager only)
+ *     tags: [Rooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status: { type: string, enum: [available, occupied, maintenance, inactive] }
+ *     responses:
+ *       200:
+ *         description: Updated room
+ */
+router.patch('/:id/status', authenticate, authorize('admin', 'manager'), roomsController.setRoomStatus);
+
+/**
+ * @swagger
+ * /api/rooms/{id}:
+ *   delete:
+ *     summary: Soft-delete a room (admin/manager only)
+ *     tags: [Rooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Room deactivated
+ */
+router.delete('/:id', authenticate, authorize('admin', 'manager'), roomsController.deleteRoom);
+
 module.exports = router;

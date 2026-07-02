@@ -22,29 +22,36 @@ app.use(helmet());
 app.use(
   cors({
     origin: function (origin, callback) {
+      // Allow requests with no origin (server-to-server, curl, etc.)
+      if (!origin) return callback(null, true);
+
       const allowedOrigins = [
         'http://localhost:5173',
+        'http://localhost:3000',
         'https://ai-hotel.onrender.com',
         'https://ai-hotel-six.vercel.app',
-        process.env.CLIENT_URL
-      ].filter(Boolean);
-      
-      if (!origin) return callback(null, true);
-      
-      const normalizedOrigin = origin.replace(/\/$/, ''); // Remove trailing slash if present
-      
-      if (allowedOrigins.includes(normalizedOrigin) || normalizedOrigin.endsWith('.vercel.app')) {
+        process.env.CLIENT_URL,
+      ].filter(Boolean).map(o => o.replace(/\/$/, ''));
+
+      const normalized = origin.replace(/\/$/, '');
+
+      if (allowedOrigins.includes(normalized) || normalized.endsWith('.vercel.app')) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS: ' + origin));
       }
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
   })
 );
 
 // Logging
 app.use(morgan('combined'));
+
+// Pre-flight OPTIONS for all routes (must be before rate limiter)
+app.options('*', cors());
 
 // Rate limiting
 const limiter = rateLimit({

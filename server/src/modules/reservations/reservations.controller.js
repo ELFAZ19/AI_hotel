@@ -17,6 +17,7 @@ const createReservation = async (req, res, next) => {
     
     res.status(201).json({ success: true, data: newReservation });
   } catch (error) {
+    console.error('[DEBUG] createReservation error:', error.message, error.detail || '', error.code || '');
     if (error.message.includes('Room not available') || error.message.includes('after check_in')) {
       return res.status(400).json({ success: false, message: error.message });
     }

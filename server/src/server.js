@@ -2,6 +2,7 @@ require("dotenv").config();
 const app = require("./app");
 const { testConnection } = require("./config/db");
 const logger = require("./utils/logger");
+const { expireStaleReservations } = require("./modules/reservations/reservations.service");
 
 const PORT = process.env.PORT || 5000;
 
@@ -20,6 +21,13 @@ const startServer = async () => {
         `Swagger Docs available at http://localhost:${PORT}/api-docs`,
       );
     });
+
+    // Clean up stale pending reservations on startup
+    await expireStaleReservations(15);
+
+    // Run cleanup every 5 minutes
+    setInterval(() => expireStaleReservations(15), 5 * 60 * 1000);
+
   } catch (error) {
     logger.error("Failed to start server", {
       message: error.message,

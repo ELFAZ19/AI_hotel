@@ -18,11 +18,38 @@ export default function StepGuestInfo({ onNext, onBack }) {
     setLoading(true);
 
     try {
+      if (!checkIn || !checkOut) {
+        toast.error('Please go back and select your check-in and check-out dates.');
+        setLoading(false);
+        return;
+      }
+
+      // checkIn/checkOut may be Date objects or ISO/date strings (from persisted store).
+      // When re-hydrated from Zustand persist as a string like "2025-08-01T00:00:00.000Z"
+      // or bare "2025-08-01", we must avoid re-parsing bare YYYY-MM-DD as UTC (which
+      // shifts the date back one day in timezones behind UTC).  Converting to a Date
+      // first and then re-formatting via date-fns is safe because date-fns format()
+      // always uses local time — the fix is upstream in RoomCard, but we guard here too.
+      const checkInDate = checkIn instanceof Date ? checkIn : new Date(checkIn);
+      const checkOutDate = checkOut instanceof Date ? checkOut : new Date(checkOut);
+
+      if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+        toast.error('Invalid check-in or check-out date. Please go back and re-select your dates.');
+        setLoading(false);
+        return;
+      }
+
+      if (checkOutDate <= checkInDate) {
+        toast.error('Check-out date must be after check-in date. Please go back and re-select your dates.');
+        setLoading(false);
+        return;
+      }
+
       const data = {
         room_id: selectedRoom.id,
-        check_in: format(checkIn, 'yyyy-MM-dd'),
-        check_out: format(checkOut, 'yyyy-MM-dd'),
-        adults: guests,
+        check_in: format(checkInDate, 'yyyy-MM-dd'),
+        check_out: format(checkOutDate, 'yyyy-MM-dd'),
+        adults: Number(guests) || 1,
         children: 0,
         special_requests: specialRequests,
       };
@@ -33,7 +60,11 @@ export default function StepGuestInfo({ onNext, onBack }) {
         onNext();
       }
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to create reservation');
+      const serverErrors = error.response?.data?.errors;
+      const message = serverErrors?.length
+        ? serverErrors.join(' · ')
+        : (error.response?.data?.message || 'Failed to create reservation');
+      toast.error(message);
     } finally {
       setLoading(false);
     }
