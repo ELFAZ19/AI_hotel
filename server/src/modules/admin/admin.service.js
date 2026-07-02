@@ -77,6 +77,28 @@ const getDashboardStats = async () => {
     revenue: parseFloat(row.revenue)
   }));
 
+  // 6. AI chat stats (graceful fallback if tables don't exist yet)
+  let aiStats = { totalSessions: 0, todaySessions: 0, totalMessages: 0 };
+  try {
+    const aiResult = await pool.query(`
+      SELECT
+        COUNT(DISTINCT cs.id) AS total_sessions,
+        COUNT(DISTINCT CASE WHEN cs.created_at::date = CURRENT_DATE THEN cs.id END) AS today_sessions,
+        COUNT(cm.id) AS total_messages
+      FROM chat_sessions cs
+      LEFT JOIN chat_messages cm ON cm.session_id = cs.id
+    `);
+    if (aiResult.rows[0]) {
+      aiStats = {
+        totalSessions: parseInt(aiResult.rows[0].total_sessions, 10),
+        todaySessions: parseInt(aiResult.rows[0].today_sessions, 10),
+        totalMessages: parseInt(aiResult.rows[0].total_messages, 10),
+      };
+    }
+  } catch (_) {
+    // Tables may not exist yet — migration not run
+  }
+
   return {
     overview: {
       totalRooms,
@@ -88,7 +110,8 @@ const getDashboardStats = async () => {
     revenue,
     occupancyRate,
     recentReservations,
-    revenueByMonth
+    revenueByMonth,
+    aiStats,
   };
 };
 

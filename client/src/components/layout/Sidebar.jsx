@@ -6,6 +6,7 @@ import {
   UtensilsCrossed,
   BarChart3,
   Users,
+  Brain,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ export default function Sidebar({ collapsed, onToggle }) {
     { label: 'Restaurant',    to: '/dashboard/restaurant',   icon: UtensilsCrossed,  visible: true },
     { label: 'Reports',       to: '/dashboard/reports',      icon: BarChart3,        visible: isManagerOrAdmin },
     { label: 'Users',         to: '/dashboard/users',        icon: Users,            visible: isManagerOrAdmin },
+    { label: 'AI Knowledge',  to: '/dashboard/knowledge',    icon: Brain,            visible: isManagerOrAdmin },
   ];
 
   return (

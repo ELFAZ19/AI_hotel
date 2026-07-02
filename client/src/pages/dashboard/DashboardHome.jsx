@@ -5,7 +5,7 @@ import RevenueChart from '../../components/dashboard/RevenueChart';
 import ReservationBadge from '../../components/dashboard/ReservationBadge';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { format, subMonths } from 'date-fns';
-import { BedDouble, CalendarRange, Wallet, Percent } from 'lucide-react';
+import { BedDouble, CalendarRange, Wallet, Percent, BotMessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function DashboardHome() {
@@ -52,7 +52,7 @@ export default function DashboardHome() {
       <h1 className="text-2xl font-bold text-navy-900 mb-6">Dashboard Overview</h1>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard 
           title="Total Reservations" 
           value={stats?.overview?.totalReservations ?? 0} 
@@ -72,6 +72,12 @@ export default function DashboardHome() {
           title="Occupancy Rate" 
           value={`${stats?.occupancyRate ?? 0}%`} 
           icon={Percent} 
+        />
+        <StatCard 
+          title="AI Chats Today" 
+          value={stats?.aiStats?.todaySessions ?? 0} 
+          icon={BotMessageSquare}
+          subtitle={`${stats?.aiStats?.totalSessions ?? 0} total sessions`}
         />
       </div>
 

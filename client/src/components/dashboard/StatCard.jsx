@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
-export default function StatCard({ title, value, icon: Icon, trend }) {
+export default function StatCard({ title, value, icon: Icon, trend, subtitle }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
@@ -21,6 +21,7 @@ export default function StatCard({ title, value, icon: Icon, trend }) {
       <div>
         <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
         <h3 className="text-2xl font-bold text-navy-950">{value}</h3>
+        {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
       </div>
     </div>
   );

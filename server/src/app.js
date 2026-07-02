@@ -10,6 +10,7 @@ const paymentsRoutes = require('./modules/payments/payments.routes');
 const restaurantRoutes = require('./modules/restaurant/restaurant.routes');
 const eventsRoutes = require('./modules/events/events.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
+const aiRoutes = require('./modules/ai/ai.routes');
 const errorHandler = require('./middleware/errorHandler');
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger");
@@ -53,12 +54,21 @@ app.use(morgan('combined'));
 // Pre-flight OPTIONS for all routes (must be before rate limiter)
 app.options('*', cors());
 
-// Rate limiting
+// Rate limiting – general API
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 100,
 });
 app.use(limiter);
+
+// Rate limiting – AI chat (more generous for conversational use)
+const chatLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  message: { success: false, error: 'Too many messages. Please wait a moment.' },
+});
+app.use('/api/ai/chat', chatLimiter);
 
 // Body parser with raw body saved for webhooks
 app.use(express.json({
@@ -75,6 +85,7 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/restaurant', restaurantRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

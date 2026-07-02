@@ -82,3 +82,37 @@ export const overrideReservationStatus = async (id, status, note) => {
   const { data } = await api.patch(`/admin/reservations/${id}/status`, { status, note });
   return data;
 };
+
+// ======================== AI KNOWLEDGE BASE ========================
+
+/**
+ * Upload a document to the AI knowledge base.
+ * @param {File}   file     - File object from input[type=file]
+ * @param {string} category - Knowledge category
+ */
+export const uploadKnowledgeSource = async (file, category = 'general') => {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('category', category);
+  const { data } = await api.post('/ai/knowledge/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+};
+
+/**
+ * List all knowledge sources.
+ */
+export const listKnowledgeSources = async () => {
+  const { data } = await api.get('/ai/knowledge/sources');
+  return data;
+};
+
+/**
+ * Delete a knowledge source by ID.
+ * @param {string} sourceId - UUID of the knowledge source
+ */
+export const deleteKnowledgeSource = async (sourceId) => {
+  const { data } = await api.delete(`/ai/knowledge/sources/${sourceId}`);
+  return data;
+};

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import AppRouter from './router/AppRouter';
 import { useAuthStore } from './store/authStore';
 import { Toaster } from 'react-hot-toast';
+import ChatWidget from './components/chat/ChatWidget';
 
 function App() {
   useEffect(() => {
@@ -11,6 +12,7 @@ function App() {
   return (
     <>
       <AppRouter />
+      <ChatWidget />
       <Toaster 
         position="top-right" 
         toastOptions={{
