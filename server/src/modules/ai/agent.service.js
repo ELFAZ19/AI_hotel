@@ -198,7 +198,7 @@ const chat = async ({ message, sessionId, userId, userName, guestToken }) => {
   // 7. Build the model
   const systemInstruction = buildSystemInstruction(isAuthenticated, userName || 'Guest');
   const model = genAI.getGenerativeModel({
-    model: 'gemini-3.5-flash',
+    model: 'gemini-2.5-flash',
     systemInstruction: systemInstruction + ragContext,
     tools: needsTools ? [{ functionDeclarations: TOOL_DECLARATIONS }] : undefined,
     generationConfig: {
