@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import ChatWidget from '../components/chat/ChatWidget';
 
 // Layouts
 import PublicLayout from '../components/layout/PublicLayout';
@@ -54,7 +55,8 @@ const DashboardIndexRoute = () => {
 
 export default function AppRouter() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <ChatWidget />
       <Routes>
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
