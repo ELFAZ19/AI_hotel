@@ -32,6 +32,7 @@ import RoomsManagePage from '../pages/dashboard/RoomsManagePage';
 import RestaurantManagePage from '../pages/dashboard/RestaurantManagePage';
 import ReportsPage from '../pages/dashboard/ReportsPage';
 import UsersPage from '../pages/dashboard/UsersPage';
+import KnowledgePage from '../pages/dashboard/KnowledgePage';
 
 // Role-based protection wrapper for dashboard
 const RoleRoute = ({ children, allowedRoles }) => {
@@ -98,6 +99,11 @@ export default function AppRouter() {
           <Route path="users" element={
             <RoleRoute allowedRoles={['admin', 'manager']}>
               <UsersPage />
+            </RoleRoute>
+          } />
+          <Route path="knowledge" element={
+            <RoleRoute allowedRoles={['admin', 'manager']}>
+              <KnowledgePage />
             </RoleRoute>
           } />
         </Route>
