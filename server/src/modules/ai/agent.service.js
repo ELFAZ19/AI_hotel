@@ -35,20 +35,20 @@ You have access to:
 Rules:
 1. Backend tools are the ONLY source of truth for prices, availability, reservations, reservation status, and payments. Never guess, estimate, or invent this information.
 2. ALWAYS use the appropriate tool for:
-   - Prices
-   - Availability
-   - Room reservations
-   - Restaurant reservations
-   - Event hall reservations
-   - Reservation inquiries
-   - Payments
+   - Prices & room availability (getRoomAvailability)
+   - Room reservations (createRoomReservation)
+   - Restaurant reservations (createRestaurantReservation)
+   - Event hall reservations (createHallReservation)
+   - Reservation inquiries (getMyReservations)
+   - Payments (createPayment)
 3. Use the knowledge base ONLY for static hotel information such as amenities, services, room descriptions, policies, restaurants, facilities, and FAQs.
 4. If the knowledge base does not contain the requested static information, politely say you couldn't find it. Never make up an answer.
-5. Before creating any reservation or initiating payment, collect the required details and obtain the guest's confirmation.
-6. If a booking is requested and the guest is not logged in, politely ask them to log in before proceeding.
-7. After a successful reservation, offer to proceed with payment.
-8. Present room or hall options clearly using bullet points and include the exact price and availability returned by the backend tool.
-9. Do not discuss or compare competing hotels.
+5. When a guest wants to book a room, collect or confirm: room type, check-in date, check-out date, and number of guests.
+6. Once the guest confirms (e.g. "yes go ahead", "confirm", "book it", "please proceed"), IMMEDIATELY call createRoomReservation with the confirmed details.
+7. After creating a reservation, createRoomReservation will return the reservation ID and a Chapa payment link (checkoutUrl). ALWAYS provide the payment link prominently in your response as a markdown link: [Click here to Pay with Chapa](checkoutUrl), display the total amount, and explain that payment is completed securely through Chapa.
+8. If a booking is requested and the guest is not logged in, politely ask them to log in before proceeding: [Log In](/login).
+9. Present room or hall options clearly using bullet points and include the exact price and availability returned by the backend tool.
+10. Do not discuss or compare competing hotels.
 
 Current guest status: ${isAuthenticated ? `Authenticated as ${userName}` : 'Guest (not logged in)'}
 `.trim();
@@ -97,22 +97,33 @@ const toGeminiHistory = (dbMessages) => {
     let part = null;
 
     if (msg.role === 'user') {
+      const text = msg.content?.trim();
+      if (!text) continue;
       role = 'user';
-      part = { text: msg.content };
+      part = { text };
     } else if (msg.role === 'assistant') {
       role = 'model';
       if (msg.tool_calls) {
-        const toolCalls = typeof msg.tool_calls === 'string'
-          ? JSON.parse(msg.tool_calls)
-          : msg.tool_calls;
-        part = toolCalls.map(tc => ({
-          functionCall: { name: tc.name, args: tc.args },
-        }));
-      } else {
-        part = { text: msg.content };
+        try {
+          const toolCalls = typeof msg.tool_calls === 'string'
+            ? JSON.parse(msg.tool_calls)
+            : msg.tool_calls;
+          if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+            part = toolCalls.map(tc => ({
+              functionCall: { name: tc.name, args: tc.args || {} },
+            }));
+          }
+        } catch {
+          // ignore corrupted tool_calls
+        }
+      }
+      if (!part) {
+        const text = msg.content?.trim();
+        if (!text) continue; // Ignore empty assistant messages from broken turns
+        part = { text };
       }
     } else if (msg.role === 'tool') {
-      role = 'function'; // functionResponse belongs to the 'function' role in Gemini
+      role = 'function';
       const toolResult = msg.tool_result
         ? (typeof msg.tool_result === 'string' ? JSON.parse(msg.tool_result) : msg.tool_result)
         : {};
@@ -123,6 +134,8 @@ const toGeminiHistory = (dbMessages) => {
         },
       };
     }
+
+    if (!role || !part) continue;
 
     // Ensure strict alternation and starting with user
     if (history.length === 0) {
@@ -137,7 +150,7 @@ const toGeminiHistory = (dbMessages) => {
           last.parts.push(...part);
         } else {
           // If we are merging texts, add a newline
-          if (part.text && last.parts[last.parts.length - 1].text) {
+          if (part.text && last.parts[last.parts.length - 1]?.text) {
              last.parts[last.parts.length - 1].text += '\n' + part.text;
           } else {
              last.parts.push(part);
@@ -148,11 +161,6 @@ const toGeminiHistory = (dbMessages) => {
       }
     }
   }
-
-  // Ensure tool functionResponses immediately follow functionCalls if we somehow messed up DB order
-  // Wait, if DB order is wrong (tool then assistant), role='user' then role='model'.
-  // This will naturally merge with surrounding user/model turns but might be semantically backwards.
-  // We've fixed future DB inserts, so we'll just accept merging for now to prevent crashes.
 
   return history;
 };
@@ -195,12 +203,13 @@ const chat = async ({ message, sessionId, userId, userName, guestToken }) => {
     }
   }
 
-  // 7. Build the model
+  // 7. Build the model — ALWAYS provide tools so multi-turn booking and payment never get stripped
   const systemInstruction = buildSystemInstruction(isAuthenticated, userName || 'Guest');
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: primaryModel,
     systemInstruction: systemInstruction + ragContext,
-    tools: needsTools ? [{ functionDeclarations: TOOL_DECLARATIONS }] : undefined,
+    tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
     generationConfig: {
       temperature: 0.4,
       maxOutputTokens: 2048,
@@ -215,6 +224,8 @@ const chat = async ({ message, sessionId, userId, userName, guestToken }) => {
   let currentMessage = message;
   let assistantText = '';
   let allToolCalls = [];
+  let paymentUrl = null;
+  let paymentAmount = null;
   const MAX_TOOL_ROUNDS = 5;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -223,7 +234,7 @@ const chat = async ({ message, sessionId, userId, userName, guestToken }) => {
       result = await geminiChat.sendMessage(currentMessage);
     } catch (err) {
       logger.error('Gemini API error: ' + err.message);
-      throw new Error('AI service temporarily unavailable. Please try again.');
+      throw new Error('AI service temporarily unavailable: ' + err.message);
     }
 
     const response = result.response;
@@ -250,7 +261,7 @@ const chat = async ({ message, sessionId, userId, userName, guestToken }) => {
 
     // Execute all requested tool calls
     const toolResponses = [];
-    const toolCallsForDB = []; // Kept for logic consistency if needed, though we already used functionCallParts above
+    const toolCallsForDB = [];
 
     for (const part of functionCallParts) {
       const { name, args } = part.functionCall;
@@ -258,6 +269,11 @@ const chat = async ({ message, sessionId, userId, userName, guestToken }) => {
 
       const toolResult = await executeTool(name, args, userId);
       logger.info(`Tool result for ${name}:`, toolResult);
+
+      if (toolResult?.checkoutUrl) {
+        paymentUrl = toolResult.checkoutUrl;
+        paymentAmount = toolResult.amount || toolResult.totalPrice || null;
+      }
 
       toolResponses.push({
         functionResponse: { name, response: toolResult },
@@ -280,24 +296,38 @@ const chat = async ({ message, sessionId, userId, userName, guestToken }) => {
     currentMessage = toolResponses;
   }
 
-  // 10. Save final assistant message
-  await chatService.saveMessage({
-    sessionId: currentSessionId,
-    role: 'assistant',
-    content: assistantText,
-  });
+  // Fallback: if Gemini returned empty text after tool execution, summarize tool result
+  if (!assistantText || !assistantText.trim()) {
+    const lastTool = allToolCalls[allToolCalls.length - 1];
+    if (lastTool?.result?.checkoutUrl) {
+      assistantText = `Your reservation has been created! Please complete your payment using the link below:\n\n[Pay with Chapa](${lastTool.result.checkoutUrl})`;
+    } else if (lastTool?.result?.message) {
+      assistantText = lastTool.result.message;
+    }
+  }
+
+  // 10. Save final assistant message (only if non-empty)
+  if (assistantText && assistantText.trim()) {
+    await chatService.saveMessage({
+      sessionId: currentSessionId,
+      role: 'assistant',
+      content: assistantText.trim(),
+    });
+  }
 
   return {
     sessionId: currentSessionId,
     message: assistantText,
     toolsUsed: allToolCalls.map(tc => tc.name),
+    paymentUrl,
+    paymentAmount,
   };
 };
 
 // ---------------------------------------------------------------------------
 // Streaming version (SSE-compatible)
 // ---------------------------------------------------------------------------
-const chatStream = async ({ message, sessionId, userId, userName, guestToken, onChunk, onToolCall, onDone }) => {
+const chatStream = async ({ message, sessionId, userId, userName, guestToken, onChunk, onToolCall, onPayment, onDone }) => {
   const isAuthenticated = !!userId;
 
   const session = await chatService.getOrCreateSession({ sessionId, userId, guestToken });
@@ -312,10 +342,10 @@ const chatStream = async ({ message, sessionId, userId, userName, guestToken, on
   const dbHistory = await chatService.getSessionMessages(currentSessionId, 20);
   const historyForContext = dbHistory.slice(0, -1);
 
-  const { needsRAG, needsTools } = classifyIntent(message);
+  const { needsRAG } = classifyIntent(message);
 
   let ragContext = '';
-  if (needsRAG || !needsTools) {
+  if (needsRAG) {
     const chunks = await retrieveRelevantChunks(message, 4);
     if (chunks.length > 0) {
       ragContext = '\n\n---\nRELEVANT HOTEL KNOWLEDGE BASE:\n' +
@@ -325,10 +355,11 @@ const chatStream = async ({ message, sessionId, userId, userName, guestToken, on
   }
 
   const systemInstruction = buildSystemInstruction(isAuthenticated, userName || 'Guest');
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: primaryModel,
     systemInstruction: systemInstruction + ragContext,
-    tools: needsTools ? [{ functionDeclarations: TOOL_DECLARATIONS }] : undefined,
+    tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
     generationConfig: { temperature: 0.4, maxOutputTokens: 2048 },
   });
 
@@ -337,6 +368,8 @@ const chatStream = async ({ message, sessionId, userId, userName, guestToken, on
 
   let currentMessage = message;
   let fullText = '';
+  let paymentUrl = null;
+  let paymentAmount = null;
   const MAX_TOOL_ROUNDS = 5;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -344,7 +377,8 @@ const chatStream = async ({ message, sessionId, userId, userName, guestToken, on
     try {
       streamResult = await geminiChat.sendMessageStream(currentMessage);
     } catch (err) {
-      throw new Error('AI service temporarily unavailable.');
+      logger.error('Gemini stream error: ' + err.message);
+      throw new Error('AI service temporarily unavailable: ' + err.message);
     }
 
     let roundText = '';
@@ -378,6 +412,18 @@ const chatStream = async ({ message, sessionId, userId, userName, guestToken, on
       onToolCall?.({ name, args });
 
       const toolResult = await executeTool(name, args, userId);
+      logger.info(`Tool result for ${name}:`, toolResult);
+
+      if (toolResult?.checkoutUrl) {
+        paymentUrl = toolResult.checkoutUrl;
+        paymentAmount = toolResult.amount || toolResult.totalPrice || null;
+        onPayment?.({
+          url: toolResult.checkoutUrl,
+          amount: paymentAmount,
+          txRef: toolResult.txRef || null,
+        });
+      }
+
       toolResponses.push({ functionResponse: { name, response: toolResult } });
       toolCallsForDB.push({ name, args });
 
@@ -400,15 +446,25 @@ const chatStream = async ({ message, sessionId, userId, userName, guestToken, on
     currentMessage = toolResponses;
   }
 
-  await chatService.saveMessage({
-    sessionId: currentSessionId,
-    role: 'assistant',
-    content: fullText,
-  });
+  // Fallback: if fullText is empty after tool calls, summarize tool result
+  if (!fullText || !fullText.trim()) {
+    if (paymentUrl) {
+      fullText = `Your reservation has been created! Please complete your payment using the link below:\n\n[Pay with Chapa](${paymentUrl})`;
+      onChunk?.(fullText);
+    }
+  }
 
-  onDone?.({ sessionId: currentSessionId, fullText });
+  if (fullText && fullText.trim()) {
+    await chatService.saveMessage({
+      sessionId: currentSessionId,
+      role: 'assistant',
+      content: fullText.trim(),
+    });
+  }
 
-  return { sessionId: currentSessionId, message: fullText };
+  onDone?.({ sessionId: currentSessionId, fullText, paymentUrl, paymentAmount });
+
+  return { sessionId: currentSessionId, message: fullText, paymentUrl, paymentAmount };
 };
 
 module.exports = { chat, chatStream };

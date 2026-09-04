@@ -38,6 +38,7 @@ export const sendChatMessageStream = async ({
   token,
   onChunk,
   onToolCall,
+  onPayment,
   onDone,
   onError,
 }) => {
@@ -90,14 +91,16 @@ export const sendChatMessageStream = async ({
             try {
               const parsed = JSON.parse(line.slice(6));
               switch (currentEvent) {
-                case 'chunk': onChunk?.(parsed.text); break;
-                case 'tool':  onToolCall?.(parsed.name); break;
-                case 'done':  onDone?.(parsed); break;
-                case 'error': onError?.(parsed.message); break;
+                case 'chunk':   onChunk?.(parsed.text); break;
+                case 'tool':    onToolCall?.(parsed.name); break;
+                case 'payment': onPayment?.(parsed); break;
+                case 'done':    onDone?.(parsed); break;
+                case 'error':   onError?.(parsed.message); break;
                 default:
                   // Fallback heuristic if event line was missed
                   if (parsed.text !== undefined) onChunk?.(parsed.text);
                   else if (parsed.name !== undefined) onToolCall?.(parsed.name);
+                  else if (parsed.url !== undefined) onPayment?.(parsed);
                   else if (parsed.sessionId !== undefined) onDone?.(parsed);
                   else if (parsed.message !== undefined) onError?.(parsed.message);
               }

@@ -93,7 +93,8 @@ const sendMessageStream = async (req, res) => {
       guestToken,
       onChunk: (text) => sendSSE('chunk', { text }),
       onToolCall: ({ name }) => sendSSE('tool', { name }),
-      onDone: ({ sessionId: sid }) => sendSSE('done', { sessionId: sid }),
+      onPayment: (paymentData) => sendSSE('payment', paymentData),
+      onDone: (doneData) => sendSSE('done', doneData),
     });
   } catch (err) {
     sendSSE('error', { message: err.message });

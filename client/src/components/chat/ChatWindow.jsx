@@ -15,8 +15,8 @@ import ChatPaymentButton from './ChatPaymentButton';
 import ChatHistoryPanel from './ChatHistoryPanel';
 import SuggestedQuestions from './SuggestedQuestions';
 
-// Detect payment link in assistant text
-const PAYMENT_URL_REGEX = /https?:\/\/checkout\.chapa\.co\/[^\s)">]+/i;
+// Detect payment link in assistant text (matches Chapa checkout URLs)
+const PAYMENT_URL_REGEX = /https?:\/\/(?:checkout\.chapa\.co|api\.chapa\.co)\/[^\s)">]+/i;
 
 export default function ChatWindow({ onClose }) {
   const {
@@ -93,6 +93,7 @@ export default function ChatWindow({ onClose }) {
     abortStreamRef.current = null;
 
     let streamWorked = false;
+    let streamPaymentData = null;
 
     const abort = await sendChatMessageStream({
       ...params,
@@ -104,9 +105,15 @@ export default function ChatWindow({ onClose }) {
       onToolCall: (name) => {
         setActiveToolName(name);
       },
-      onDone: ({ sessionId: sid }) => {
+      onPayment: (paymentData) => {
+        streamPaymentData = paymentData;
+      },
+      onDone: (doneData) => {
+        const sid = doneData?.sessionId;
         if (sid && !sessionId) setSessionId(sid);
-        commitStreamedMessage();
+        const pUrl = doneData?.paymentUrl || streamPaymentData?.url;
+        const pAmount = doneData?.paymentAmount || streamPaymentData?.amount;
+        commitStreamedMessage(pUrl ? { paymentUrl: pUrl, paymentAmount: pAmount } : {});
         setStreaming(false);
         setActiveToolName(null);
       },
@@ -116,13 +123,18 @@ export default function ChatWindow({ onClose }) {
           try {
             const result = await sendChatMessage(params);
             if (!sessionId && result.sessionId) setSessionId(result.sessionId);
-            addMessage('assistant', result.message);
+            addMessage('assistant', result.message, {
+              paymentUrl: result.paymentUrl,
+              paymentAmount: result.paymentAmount,
+            });
           } catch {
             setError('Failed to get a response. Please try again.');
           }
         } else {
           setError('Stream interrupted.');
-          commitStreamedMessage();
+          const pUrl = streamPaymentData?.url;
+          const pAmount = streamPaymentData?.amount;
+          commitStreamedMessage(pUrl ? { paymentUrl: pUrl, paymentAmount: pAmount } : {});
         }
         setStreaming(false);
         setActiveToolName(null);
@@ -161,7 +173,9 @@ export default function ChatWindow({ onClose }) {
   // ----- Extract payment URL from assistant messages -----
   const extractPaymentUrl = (text) => {
     const match = text?.match(PAYMENT_URL_REGEX);
-    return match ? match[0] : null;
+    if (!match) return null;
+    // Strip trailing punctuation like . , ; : ! ? )
+    return match[0].replace(/[.,;:!?)]+$/, '');
   };
 
   return (
@@ -232,10 +246,10 @@ export default function ChatWindow({ onClose }) {
               content={msg.content}
               timestamp={msg.timestamp}
             />
-            {/* Payment button if a Chapa URL is found in the message */}
+            {/* Payment button if a Chapa URL is found or metadata attached */}
             {msg.role === 'assistant' && (() => {
-              const url = extractPaymentUrl(msg.content);
-              return url ? <ChatPaymentButton url={url} /> : null;
+              const url = msg.paymentUrl || extractPaymentUrl(msg.content);
+              return url ? <ChatPaymentButton url={url} amount={msg.paymentAmount} /> : null;
             })()}
           </div>
         ))}

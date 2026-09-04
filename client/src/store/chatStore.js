@@ -53,7 +53,7 @@ export const useChatStore = create(
       appendStreamChunk: (text) =>
         set((s) => ({ streamingText: s.streamingText + text })),
 
-      commitStreamedMessage: () => {
+      commitStreamedMessage: (extra = {}) => {
         const { streamingText } = get();
         if (!streamingText) return;
         set((s) => ({
@@ -64,6 +64,7 @@ export const useChatStore = create(
               role: 'assistant',
               content: streamingText,
               timestamp: new Date().toISOString(),
+              ...extra,
             },
           ],
           streamingText: '',

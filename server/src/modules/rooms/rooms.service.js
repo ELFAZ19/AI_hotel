@@ -144,10 +144,11 @@ const getAvailableRooms = async ({ checkIn, checkOut, guests, roomTypeId }) => {
     params.push(roomTypeId);
     query += ` AND r.room_type_id = $${params.length}`;
   }
-  // Exclude rooms with conflicting reservations
+  // Exclude rooms with conflicting reservations (excluding expired pending reservations)
   query += ` AND r.id NOT IN (
     SELECT room_id FROM reservations
     WHERE status NOT IN ('cancelled', 'checked_out', 'no_show')
+      AND NOT (status = 'pending' AND created_at < NOW() - INTERVAL '15 minutes')
       AND check_in < $${params.length + 2} AND check_out > $${params.length + 1}
   )`;
   params.push(checkIn, checkOut);
@@ -229,10 +230,11 @@ const getRoomSummary = async ({ checkIn, checkOut, guests }) => {
     let availableRooms;
 
     if (checkIn && checkOut) {
-      // 3. Find which rooms have conflicting reservations
+      // 3. Find which rooms have conflicting reservations (excluding expired pending)
       const bookedResult = await pool.query(
         `SELECT DISTINCT room_id FROM reservations
          WHERE status NOT IN ('cancelled', 'checked_out', 'no_show')
+           AND NOT (status = 'pending' AND created_at < NOW() - INTERVAL '15 minutes')
            AND check_in < $2 AND check_out > $1
            AND room_id IN (SELECT id FROM rooms WHERE room_type_id = $3 AND is_active = true)`,
         [checkIn, checkOut, type.id]

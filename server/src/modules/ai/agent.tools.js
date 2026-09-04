@@ -43,18 +43,20 @@ const TOOL_DECLARATIONS = [
   {
     name: 'createRoomReservation',
     description:
-      'Create a room reservation for the authenticated guest. Requires the user to be logged in. Returns the new reservation id and total price so payment can be initiated.',
+      'Create a room reservation for the authenticated guest and automatically generate a Chapa payment link. Requires the user to be logged in. Returns the reservation details and Chapa checkout payment link.',
     parameters: {
       type: 'OBJECT',
       properties: {
-        roomId:          { type: 'STRING', description: 'UUID of the room to book' },
+        roomId:          { type: 'STRING', description: 'UUID of the room to book (optional if roomTypeId or roomTypeName is provided)' },
+        roomTypeId:      { type: 'NUMBER', description: 'ID of the room type (e.g. 1 for Standard, 3 for Deluxe Double)' },
+        roomTypeName:    { type: 'STRING', description: 'Name of the room type (e.g. "Deluxe Double Room", "Standard Room", "Suite Room")' },
         checkIn:         { type: 'STRING', description: 'Check-in date YYYY-MM-DD' },
         checkOut:        { type: 'STRING', description: 'Check-out date YYYY-MM-DD' },
         adults:          { type: 'NUMBER', description: 'Number of adult guests' },
         children:        { type: 'NUMBER', description: 'Number of children' },
         specialRequests: { type: 'STRING', description: 'Any special requests or notes from the guest' },
       },
-      required: ['roomId', 'checkIn', 'checkOut', 'adults'],
+      required: ['checkIn', 'checkOut', 'adults'],
     },
   },
   {
@@ -187,19 +189,105 @@ const executeGetRoomDetails = async ({ roomId }) => {
   };
 };
 
-const executeCreateRoomReservation = async ({ roomId, checkIn, checkOut, adults, children, specialRequests }, userId) => {
+const isUuid = (str) =>
+  typeof str === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str.trim());
+
+const executeCreateRoomReservation = async (
+  { roomId, roomTypeId, roomTypeName, checkIn, checkOut, adults, children, specialRequests },
+  userId
+) => {
   if (!userId) {
-    return { requiresLogin: true, message: 'You must be logged in to make a reservation.' };
+    return { requiresLogin: true, message: 'You must be logged in to make a reservation. Please log in first.' };
   }
+
+  // 1. Resolve room ID
+  let targetRoomId = null;
+
+  if (roomId && isUuid(roomId)) {
+    const isAvail = await roomsService.checkAvailability({ roomId, checkIn, checkOut });
+    if (isAvail) {
+      targetRoomId = roomId;
+    }
+  }
+
+  // If specific roomId is not available or not a valid UUID, search by room type
+  if (!targetRoomId) {
+    let typeId = roomTypeId;
+    // If roomId was passed as a number (e.g. roomTypeId), use it
+    if (!typeId && roomId && !isUuid(roomId) && !isNaN(Number(roomId))) {
+      typeId = Number(roomId);
+    }
+    // If roomTypeName was provided (or roomId contains the name of the room type)
+    if (!typeId && (roomTypeName || (roomId && !isUuid(roomId)))) {
+      const searchName = (roomTypeName || roomId).trim();
+      const typeRes = await pool.query(
+        'SELECT id FROM room_types WHERE LOWER(name) = LOWER($1) OR LOWER(name) LIKE LOWER($2) LIMIT 1',
+        [searchName, `%${searchName}%`]
+      );
+      if (typeRes.rows[0]) {
+        typeId = typeRes.rows[0].id;
+      }
+    }
+
+    if (typeId) {
+      const availRes = await pool.query(
+        `SELECT r.id FROM rooms r
+         WHERE r.room_type_id = $1 AND r.is_active = true
+           AND r.id NOT IN (
+             SELECT room_id FROM reservations
+             WHERE status NOT IN ('cancelled', 'checked_out', 'no_show')
+               AND NOT (status = 'pending' AND created_at < NOW() - INTERVAL '15 minutes')
+               AND check_in < $3 AND check_out > $2
+           )
+         ORDER BY r.room_number ASC
+         LIMIT 1`,
+        [typeId, checkIn, checkOut]
+      );
+      if (availRes.rows[0]) {
+        targetRoomId = availRes.rows[0].id;
+      }
+    }
+  }
+
+  if (!targetRoomId) {
+    return {
+      error: 'No rooms of this type are available for the selected dates. Please check availability for other dates or room types.',
+    };
+  }
+
+  // 2. Create the reservation
   const reservation = await reservationsService.createReservation({
     guestId: userId,
-    roomId,
+    roomId: targetRoomId,
     checkIn,
     checkOut,
-    adults,
-    children: children || 0,
+    adults: Number(adults) || 1,
+    children: Number(children) || 0,
     specialRequests,
   });
+
+  // 3. Automatically initiate Chapa payment so user gets the payment link immediately
+  let paymentInfo = null;
+  try {
+    const userResult = await pool.query(
+      'SELECT email, first_name, last_name FROM users WHERE id = $1',
+      [userId]
+    );
+    const user = userResult.rows[0];
+    if (user && user.email) {
+      paymentInfo = await chapaService.initiatePayment({
+        reservationId: reservation.id,
+        amount: reservation.total_price,
+        email: user.email,
+        firstName: user.first_name || 'Guest',
+        lastName: user.last_name || 'User',
+      });
+    }
+  } catch (payErr) {
+    console.error('Auto payment initiation error:', payErr.message);
+  }
+
   return {
     success: true,
     reservationId: reservation.id,
@@ -207,7 +295,12 @@ const executeCreateRoomReservation = async ({ roomId, checkIn, checkOut, adults,
     checkIn: reservation.check_in,
     checkOut: reservation.check_out,
     status: reservation.status,
-    message: `Reservation created successfully. Total: ${reservation.total_price} ETB. Proceed to payment.`,
+    checkoutUrl: paymentInfo?.checkoutUrl || null,
+    paymentLink: paymentInfo?.checkoutUrl || null,
+    txRef: paymentInfo?.txRef || null,
+    message: paymentInfo?.checkoutUrl
+      ? `Reservation created successfully! Total: ${reservation.total_price} ETB. Please complete your payment using Chapa at: ${paymentInfo.checkoutUrl}`
+      : `Reservation created successfully. Total: ${reservation.total_price} ETB. Proceed to payment.`,
   };
 };
 
@@ -270,6 +363,26 @@ const executeCreatePayment = async ({ reservationId, reservationType = 'room' },
   if (!userId) {
     return { requiresLogin: true, message: 'You must be logged in to make a payment.' };
   }
+
+  // Check if a pending payment already exists for this reservation to avoid duplicate transactions
+  const existingPayment = await pool.query(
+    `SELECT chapa_checkout_url, chapa_tx_ref, amount, status FROM payments
+     WHERE reservation_id = $1 AND status = 'pending'
+     ORDER BY created_at DESC LIMIT 1`,
+    [reservationId]
+  );
+  if (existingPayment.rows[0]?.chapa_checkout_url) {
+    const existing = existingPayment.rows[0];
+    return {
+      success: true,
+      checkoutUrl: existing.chapa_checkout_url,
+      txRef: existing.chapa_tx_ref,
+      amount: Number(existing.amount),
+      message: `Payment of ${existing.amount} ETB initiated. Please complete your payment using the link below: ${existing.chapa_checkout_url}`,
+      paymentLink: existing.chapa_checkout_url,
+    };
+  }
+
   // Fetch reservation + user info for Chapa
   const userResult = await pool.query(
     'SELECT email, first_name, last_name FROM users WHERE id = $1',
@@ -281,7 +394,6 @@ const executeCreatePayment = async ({ reservationId, reservationType = 'room' },
   // Determine amount based on reservation type
   let amount;
   if (reservationType === 'restaurant') {
-    // Restaurant reservations are usually free / low-cost, use 0 or skip payment
     return { message: 'Restaurant reservations do not require advance payment at this hotel.' };
   } else if (reservationType === 'hall') {
     const res = await pool.query('SELECT total_price FROM event_bookings WHERE id = $1 AND guest_id = $2', [reservationId, userId]);
@@ -297,8 +409,8 @@ const executeCreatePayment = async ({ reservationId, reservationType = 'room' },
     reservationId,
     amount,
     email: user.email,
-    firstName: user.first_name,
-    lastName: user.last_name,
+    firstName: user.first_name || 'Guest',
+    lastName: user.last_name || 'User',
   });
 
   return {
@@ -306,7 +418,7 @@ const executeCreatePayment = async ({ reservationId, reservationType = 'room' },
     checkoutUrl: payment.checkoutUrl,
     txRef: payment.txRef,
     amount: Number(amount),
-    message: `Payment of ${amount} ETB initiated. Please complete your payment using the link below.`,
+    message: `Payment of ${amount} ETB initiated. Please complete your payment using the link below: ${payment.checkoutUrl}`,
     paymentLink: payment.checkoutUrl,
   };
 };
