@@ -31,33 +31,27 @@ export default function RoomsPage() {
   }, [typeFilterId]);
 
   useEffect(() => {
-    const fetchTypes = async () => {
-      try {
-        const res = await getRoomTypes();
-        if (res.success) setRoomTypes(res.data);
-      } catch (error) {
-        console.error('Error fetching room types:', error);
-      }
-    };
-    fetchTypes();
-  }, []);
-
-  useEffect(() => {
-    const fetchSummary = async () => {
+    let isMounted = true;
+    const loadRoomsData = async () => {
       setLoading(true);
       try {
-        const res = await getRoomSummary(checkIn, checkOut, guests);
-        if (res.success) {
-          setRoomSummary(res.data);
+        const [typesRes, summaryRes] = await Promise.all([
+          roomTypes.length ? Promise.resolve({ success: true, data: roomTypes }) : getRoomTypes(),
+          getRoomSummary(checkIn, checkOut, guests),
+        ]);
+        if (isMounted) {
+          if (typesRes?.success) setRoomTypes(typesRes.data);
+          if (summaryRes?.success) setRoomSummary(summaryRes.data);
         }
       } catch (error) {
-        console.error('Error fetching room summary:', error);
+        console.error('Error fetching rooms data:', error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
-    fetchSummary();
+    loadRoomsData();
+    return () => { isMounted = false; };
   }, [checkIn, checkOut, guests]);
 
   const handleTypeToggle = (typeId) => {

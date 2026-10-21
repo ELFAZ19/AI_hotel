@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import ChatWidget from '../components/chat/ChatWidget';
@@ -7,33 +8,41 @@ import PublicLayout from '../components/layout/PublicLayout';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import ProtectedRoute from './ProtectedRoute';
 
-// Auth
-import LoginPage from '../pages/LoginPage';
-import RegisterPage from '../pages/RegisterPage';
-
-// Public Pages
+// Public Core Pages (eager loaded for immediate interaction)
 import HomePage from '../pages/public/HomePage';
 import RoomsPage from '../pages/public/RoomsPage';
-import RoomDetailPage from '../pages/public/RoomDetailPage';
-import RestaurantPage from '../pages/public/RestaurantPage';
-import ContactPage from '../pages/public/ContactPage';
+
+// Lazy Loaded Pages
+const RoomDetailPage = lazy(() => import('../pages/public/RoomDetailPage'));
+const RestaurantPage = lazy(() => import('../pages/public/RestaurantPage'));
+const ContactPage = lazy(() => import('../pages/public/ContactPage'));
+
+// Auth
+const LoginPage = lazy(() => import('../pages/LoginPage'));
+const RegisterPage = lazy(() => import('../pages/RegisterPage'));
 
 // Booking
-import BookingPage from '../pages/booking/BookingPage';
-import ConfirmationPage from '../pages/booking/ConfirmationPage';
+const BookingPage = lazy(() => import('../pages/booking/BookingPage'));
+const ConfirmationPage = lazy(() => import('../pages/booking/ConfirmationPage'));
 
 // Guest
-import MyReservationsPage from '../pages/guest/MyReservationsPage';
-import ProfilePage from '../pages/guest/ProfilePage';
+const MyReservationsPage = lazy(() => import('../pages/guest/MyReservationsPage'));
+const ProfilePage = lazy(() => import('../pages/guest/ProfilePage'));
 
 // Dashboard
-import DashboardHome from '../pages/dashboard/DashboardHome';
-import ReservationsPage from '../pages/dashboard/ReservationsPage';
-import RoomsManagePage from '../pages/dashboard/RoomsManagePage';
-import RestaurantManagePage from '../pages/dashboard/RestaurantManagePage';
-import ReportsPage from '../pages/dashboard/ReportsPage';
-import UsersPage from '../pages/dashboard/UsersPage';
-import KnowledgePage from '../pages/dashboard/KnowledgePage';
+const DashboardHome = lazy(() => import('../pages/dashboard/DashboardHome'));
+const ReservationsPage = lazy(() => import('../pages/dashboard/ReservationsPage'));
+const RoomsManagePage = lazy(() => import('../pages/dashboard/RoomsManagePage'));
+const RestaurantManagePage = lazy(() => import('../pages/dashboard/RestaurantManagePage'));
+const ReportsPage = lazy(() => import('../pages/dashboard/ReportsPage'));
+const UsersPage = lazy(() => import('../pages/dashboard/UsersPage'));
+const KnowledgePage = lazy(() => import('../pages/dashboard/KnowledgePage'));
+
+const PageFallback = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="w-8 h-8 border-3 border-gold-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 // Role-based protection wrapper for dashboard
 const RoleRoute = ({ children, allowedRoles }) => {
@@ -57,7 +66,8 @@ export default function AppRouter() {
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ChatWidget />
-      <Routes>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -113,6 +123,7 @@ export default function AppRouter() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </Router>
   );
 }

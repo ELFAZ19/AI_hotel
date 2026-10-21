@@ -214,58 +214,62 @@ const setRoomStatus = async (id, status) => {
 
 // ---------- Room Summary (grouped by type) ----------
 const getRoomSummary = async ({ checkIn, checkOut, guests }) => {
-  // 1. Get all room types
-  const typesResult = await pool.query('SELECT * FROM room_types ORDER BY base_price ASC');
+  // Fetch room types and all active rooms concurrently in ONE roundtrip
+  const [typesResult, roomsResult] = await Promise.all([
+    pool.query('SELECT * FROM room_types ORDER BY base_price ASC'),
+    pool.query(`
+      SELECT r.*,
+             img.url AS primary_image_url
+      FROM rooms r
+      LEFT JOIN room_images img ON r.id = img.room_id AND img.is_primary = true
+      WHERE r.is_active = true
+      ORDER BY r.room_number ASC
+    `),
+  ]);
+
   const roomTypes = typesResult.rows;
+  const allRooms = roomsResult.rows;
+
+  // If date filters provided, get all booked room IDs in ONE query
+  let bookedRoomIds = new Set();
+  if (checkIn && checkOut) {
+    const bookedResult = await pool.query(
+      `SELECT DISTINCT room_id FROM reservations
+       WHERE status NOT IN ('cancelled', 'checked_out', 'no_show')
+         AND NOT (status = 'pending' AND created_at < NOW() - INTERVAL '15 minutes')
+         AND check_in < $2 AND check_out > $1`,
+      [checkIn, checkOut]
+    );
+    bookedRoomIds = new Set(bookedResult.rows.map((r) => r.room_id));
+  }
+
+  // Group rooms by room_type_id in memory (sub-millisecond)
+  const roomsByType = new Map();
+  for (const r of allRooms) {
+    if (!roomsByType.has(r.room_type_id)) {
+      roomsByType.set(r.room_type_id, []);
+    }
+    roomsByType.get(r.room_type_id).push(r);
+  }
 
   const summary = [];
-
   for (const type of roomTypes) {
-    // Skip types that don't fit the guest requirement
     if (guests && type.max_guests < Number(guests)) continue;
 
-    // 2. Get all active rooms of this type
-    const roomsResult = await pool.query(
-      `SELECT r.*, 
-              COALESCE(r.price_override, $2) AS effective_price,
-              img.url AS primary_image_url
-       FROM rooms r
-       LEFT JOIN room_images img ON r.id = img.room_id AND img.is_primary = true
-       WHERE r.room_type_id = $1 AND r.is_active = true
-       ORDER BY r.room_number ASC`,
-      [type.id, type.base_price]
-    );
-
-    const totalRooms = roomsResult.rows;
+    const totalRooms = roomsByType.get(type.id) || [];
     const totalCount = totalRooms.length;
-
-    if (totalCount === 0) continue; // No rooms of this type exist
+    if (totalCount === 0) continue;
 
     let availableRooms;
-
     if (checkIn && checkOut) {
-      // 3. Find which rooms have conflicting reservations (excluding expired pending)
-      const bookedResult = await pool.query(
-        `SELECT DISTINCT room_id FROM reservations
-         WHERE status NOT IN ('cancelled', 'checked_out', 'no_show')
-           AND NOT (status = 'pending' AND created_at < NOW() - INTERVAL '15 minutes')
-           AND check_in < $2 AND check_out > $1
-           AND room_id IN (SELECT id FROM rooms WHERE room_type_id = $3 AND is_active = true)`,
-        [checkIn, checkOut, type.id]
-      );
-      const bookedRoomIds = new Set(bookedResult.rows.map(r => r.room_id));
-      availableRooms = totalRooms.filter(r => !bookedRoomIds.has(r.id));
+      availableRooms = totalRooms.filter((r) => !bookedRoomIds.has(r.id) && r.status === 'available');
     } else {
-      // No date filter: show all non-maintenance rooms as "available"
-      availableRooms = totalRooms.filter(r => r.status === 'available');
+      availableRooms = totalRooms.filter((r) => r.status === 'available');
     }
 
     const availableCount = availableRooms.length;
-
-    // Pick a representative room (first available, or first overall if none available)
     const representativeRoom = availableRooms[0] || totalRooms[0];
 
-    // Parse amenities
     let amenities = type.amenities;
     if (typeof amenities === 'string') {
       try { amenities = JSON.parse(amenities); } catch { amenities = []; }
@@ -284,7 +288,7 @@ const getRoomSummary = async ({ checkIn, checkOut, guests }) => {
         id: representativeRoom.id,
         room_number: representativeRoom.room_number,
         floor: representativeRoom.floor,
-        effective_price: Number(representativeRoom.effective_price),
+        effective_price: Number(representativeRoom.price_override || type.base_price),
         primary_image_url: representativeRoom.primary_image_url || TYPE_DEFAULT_IMAGES[type.id] || TYPE_DEFAULT_IMAGES[1],
         status: representativeRoom.status,
       },

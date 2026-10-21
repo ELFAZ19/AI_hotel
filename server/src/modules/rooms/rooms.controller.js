@@ -3,6 +3,7 @@ const roomsService = require('./rooms.service');
 const getAllRoomTypes = async (req, res, next) => {
   try {
     const roomTypes = await roomsService.getAllRoomTypes();
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
     res.json({ success: true, data: roomTypes });
   } catch (error) {
     next(error);
@@ -13,6 +14,7 @@ const getRoomTypeById = async (req, res, next) => {
   try {
     const roomType = await roomsService.getRoomTypeById(req.params.id);
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
     res.json({ success: true, data: roomType });
   } catch (error) {
     next(error);
@@ -32,6 +34,7 @@ const getAllRooms = async (req, res, next) => {
   try {
     const { status, type } = req.query;
     const rooms = await roomsService.getAllRooms({ status, type });
+    res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=60');
     res.json({ success: true, data: rooms });
   } catch (error) {
     next(error);
@@ -42,6 +45,7 @@ const getRoomById = async (req, res, next) => {
   try {
     const room = await roomsService.getRoomById(req.params.id);
     if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
     res.json({ success: true, data: room });
   } catch (error) {
     next(error);
@@ -75,6 +79,7 @@ const getRoomSummary = async (req, res, next) => {
       checkOut: check_out,
       guests
     });
+    res.setHeader('Cache-Control', 'public, s-maxage=20, stale-while-revalidate=60');
     res.json({ success: true, data: summary });
   } catch (error) {
     next(error);
