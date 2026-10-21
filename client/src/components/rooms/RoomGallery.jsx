@@ -21,7 +21,7 @@ export default function RoomGallery({ images = [] }) {
       <div className="relative group">
         <div className="overflow-hidden rounded-2xl">
           <img
-            src={images[current]?.image_url || images[current]}
+            src={images[current]?.url || images[current]?.image_url || images[current]}
             alt={`Room image ${current + 1}`}
             className="w-full h-[400px] lg:h-[500px] object-cover transition-transform duration-500"
           />
@@ -71,7 +71,7 @@ export default function RoomGallery({ images = [] }) {
               }`}
             >
               <img
-                src={img.image_url || img}
+                src={img.url || img.image_url || img}
                 alt={`Thumbnail ${idx + 1}`}
                 className="w-full h-full object-cover"
               />
@@ -87,7 +87,7 @@ export default function RoomGallery({ images = [] }) {
           onClick={() => setLightboxOpen(false)}
         >
           <img
-            src={images[current]?.image_url || images[current]}
+            src={images[current]?.url || images[current]?.image_url || images[current]}
             alt={`Room image ${current + 1}`}
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}

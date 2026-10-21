@@ -127,3 +127,6 @@ server/build/
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+.env*

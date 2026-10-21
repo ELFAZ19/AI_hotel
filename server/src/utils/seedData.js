@@ -125,6 +125,44 @@ const seedData = async () => {
       logger.info("Rooms already exist, skipping.");
     }
 
+    // ======================== SEED ROOM IMAGES ========================
+    logger.info("Seeding room images...");
+    const imagesExist = await client.query("SELECT COUNT(*) FROM room_images");
+    if (parseInt(imagesExist.rows[0].count) === 0) {
+      const roomTypeImages = {
+        1: [
+          'https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1566665797739-1674de7a421a?q=80&w=1200&auto=format&fit=crop'
+        ],
+        2: [
+          'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?q=80&w=1200&auto=format&fit=crop'
+        ],
+        3: [
+          'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?q=80&w=1200&auto=format&fit=crop'
+        ],
+        4: [
+          'https://images.unsplash.com/photo-1618773928121-c32242e63f39?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1591088398332-8a7791972843?q=80&w=1200&auto=format&fit=crop'
+        ],
+      };
+
+      const rooms = await client.query("SELECT id, room_type_id FROM rooms");
+      for (const room of rooms.rows) {
+        const urls = roomTypeImages[room.room_type_id] || roomTypeImages[1];
+        for (let i = 0; i < urls.length; i++) {
+          await client.query(
+            `INSERT INTO room_images (room_id, url, is_primary, sort_order) VALUES ($1, $2, $3, $4)`,
+            [room.id, urls[i], i === 0, i]
+          );
+        }
+      }
+      logger.success("Room images seeded.");
+    } else {
+      logger.info("Room images already exist, skipping.");
+    }
+
     // ======================== SEED EVENT SPACES ========================
     logger.info("Seeding event spaces...");
     const spacesExist = await client.query("SELECT COUNT(*) FROM event_spaces");

@@ -88,9 +88,19 @@ app.use('/api/events', eventsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+// Root & Health checks
+app.get(['/', '/api'], (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'Adane Hotel API',
+    version: '1.0.0',
+    docs: '/api-docs',
+    health: '/health'
+  });
+});
+
+app.get(['/health', '/api/health'], (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Swagger Docs

@@ -23,6 +23,14 @@ export default function RoomsPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
+    if (typeFilterId) {
+      setSelectedTypes([Number(typeFilterId)]);
+    } else {
+      setSelectedTypes([]);
+    }
+  }, [typeFilterId]);
+
+  useEffect(() => {
     const fetchTypes = async () => {
       try {
         const res = await getRoomTypes();

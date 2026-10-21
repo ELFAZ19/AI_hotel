@@ -1,6 +1,13 @@
 const { pool } = require('../../config/db');
 const { deleteImage } = require('../../middleware/upload');
 
+const TYPE_DEFAULT_IMAGES = {
+  1: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=1200&auto=format&fit=crop',
+  2: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?q=80&w=1200&auto=format&fit=crop',
+  3: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1200&auto=format&fit=crop',
+  4: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?q=80&w=1200&auto=format&fit=crop',
+};
+
 // ---------- Helper ----------
 const getPrimaryImageUrl = (images) => {
   const primary = images.find((img) => img.is_primary);
@@ -54,7 +61,10 @@ const getAllRooms = async ({ status, type, floor }) => {
   }
   query += ' ORDER BY r.room_number ASC';
   const result = await pool.query(query, params);
-  return result.rows;
+  return result.rows.map((r) => ({
+    ...r,
+    primary_image_url: r.primary_image_url || TYPE_DEFAULT_IMAGES[r.room_type_id] || TYPE_DEFAULT_IMAGES[1],
+  }));
 };
 
 const getRoomById = async (id) => {
@@ -73,6 +83,10 @@ const getRoomById = async (id) => {
     [id]
   );
   room.images = imagesResult.rows;
+  if (!room.images || room.images.length === 0) {
+    const defaultUrl = TYPE_DEFAULT_IMAGES[room.room_type_id] || TYPE_DEFAULT_IMAGES[1];
+    room.images = [{ id: 'default', url: defaultUrl, is_primary: true }];
+  }
   return room;
 };
 
@@ -271,7 +285,7 @@ const getRoomSummary = async ({ checkIn, checkOut, guests }) => {
         room_number: representativeRoom.room_number,
         floor: representativeRoom.floor,
         effective_price: Number(representativeRoom.effective_price),
-        primary_image_url: representativeRoom.primary_image_url,
+        primary_image_url: representativeRoom.primary_image_url || TYPE_DEFAULT_IMAGES[type.id] || TYPE_DEFAULT_IMAGES[1],
         status: representativeRoom.status,
       },
     });
